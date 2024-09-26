@@ -1,0 +1,48 @@
+\label{sec:setup-guide}
+\subsection{Setting up the development environment}
+In this section you will find a step by step walk-through on how to setup your development environment.
+
+\subsection{System requirements}
+ABAI has the following system requirements :
+
+\paragraph{\fontsize{14}{17}\selectfont Operating System}
+\begin{itemize}[label=\textbullet]
+    \item \texttt{Windows / MacOS / Linux}
+\end{itemize}
+
+\paragraph{\fontsize{14}{17}\selectfont Disk Space}
+\begin{itemize}
+    \item At least \texttt{\textbf{100 MB}} of free disk space.
+\end{itemize}
+
+\subsection{Software requirements}
+
+ABAI makes use of the following main software :
+
+\paragraph{\fontsize{14}{17}\selectfont Library and Environment}
+\begin{itemize}[label=\textbullet]
+    \item \href{https://www.python.org/}{\texttt{Python 3.12}}
+    \item \texttt{Pip v24.0} (installed with Python)
+    \item \href{https://git-scm.com/}{\texttt{Git}}
+\end{itemize}
+During installation of the previous software, please pay attention that they correctly define their respective variables in \textbf{PATH}.
+
+\subsection{Download}
+The project's source code is available on \href{https://github.com/UNamurCSFaculty/2324_INFOB318_ABAI2}{GitHub}.
+
+The recommended way to download the source code is to use the following git command in the folder you want: 
+\begin{codebox}
+    \large\texttt{\$ git clone https://github.com/UNamurCSFaculty/2324\_INFOB318\_ABAI2}
+\end{codebox}
+
+\subsection{Setup}
+First, open a terminal and navigate to the project folder. The name of the folder should be \textbf{\texttt{2324\_INFOB318\_ABAI2}}
+\begin{tcolorbox}[colback=blue!10!white,colframe=blue!70!black,title=Note]
+It may be useful to create a \href{https://docs.python.org/3/tutorial/venv.html}{virtual environment} before installing the application. This is to make sure that Python will not have any dependency conflicts.
+\end{tcolorbox}
+\vspace{0.5cm}
+Now, run the following command to setup the development environment:
+\begin{codebox}
+    \large\texttt{\$ pip install -r requirements.txt}
+\end{codebox}
+

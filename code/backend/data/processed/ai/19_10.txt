@@ -1,0 +1,1 @@
+To prevent algorithmic biases, data used for training AI systems must be carefully curated. Developers should implement bias mitigation techniques and conduct regular audits to identify and rectify potential disparities. This approach not only enhances the accuracy of AI but also aligns it more closely with societal values of fairness and equity.

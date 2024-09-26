@@ -1,0 +1,20 @@
+version: '1'
+
+services:
+  abai-website:
+    build: 
+      context: ..
+      dockerfile: docker/Dockerfile.website
+    command: python -O ./code/django_abai/manage.py runserver 0.0.0.0:8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/abai/web
+
+  abai-local:
+    build: 
+      context: ..
+      dockerfile: docker/Dockerfile.local
+    command: python -O ./code/backend/main.py
+    volumes:
+      - .:/abai/local

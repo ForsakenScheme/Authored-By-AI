@@ -1,0 +1,53 @@
+.green-text {
+    color: rgb(68, 164, 68);
+}
+.red-text {
+    color: rgba(224, 43, 43, 0.554);
+}
+.ABAI-letters {
+    color: #a1926b
+}
+body{
+    background-image: url('../images/Background.png');
+    background-size: cover;
+    background-repeat: no-repeat;
+    margin: 0 auto;
+    padding: 0;
+    min-height: 100vh;
+}
+#submitButton {
+    position: relative;
+    overflow: hidden;
+}
+#submitButton::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 0;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.5);
+    z-index: -1;
+    transition: width 1s linear;
+}
+.disclaimer {
+    font-size: 11px;
+    float: right;
+    margin-top: 50px;
+}
+.container {
+    padding: 200px;
+}
+.charCount {
+    float: right;
+    font-size: 14px;
+    margin-top: 5px;
+    margin-bottom: 15px;
+}
+.short {
+    color: rgb(221, 155, 0);
+}
+.custom-btn {
+    margin: 0;
+    padding: 0;
+}

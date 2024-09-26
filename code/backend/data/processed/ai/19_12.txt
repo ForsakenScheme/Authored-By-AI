@@ -1,0 +1,1 @@
+AI systems should be continuously monitored for errors, vulnerabilities, and ethical implications. Developers must be prepared to adapt and modify systems to rectify problems as they arise. In the rapidly evolving landscape of AI, constant vigilance is key to identifying and addressing potential failures promptly.

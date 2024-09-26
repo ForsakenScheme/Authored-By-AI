@@ -1,0 +1,75 @@
+\subsection{Coding style}
+\label{subsec:coding-style}
+The source code follows the \href{https://peps.python.org/pep-0008/}{PEP 8} and a variant of the \href{https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_google.html}{google style docstrings}. In addition,
+the entire code is also formatted with \href{https://black.readthedocs.io/en/stable/getting_started.html}{Black} to remain consistent. Type hinting can be added and is considered as a most welcome bonus. Especially where it seems the most useful to resolve confusion.
+
+\subsection{Project structure}
+\label{subsec:project-structure}
+
+The ABAI project follows the \href{https://packaging.python.org/en/latest/tutorials/packaging-projects/}{recommended Python project structure}. The main project structure for ABAI is described as follows: \\
+
+\texttt{\dirtree{%
+.1 2324\_INFOB318\_ABAI2 (root with \textbf{license and readme files}).
+.2 code \textbf{(1)}. 
+.3 backend \textbf{(2)}.
+.4 config \textbf{(3)}.
+.4 data \textbf{(4)}.
+.4 logs \textbf{(5)}.
+.4 models \textbf{(6)}.
+.4 scripts \textbf{(7)}.
+.4 static \textbf{(8)}.
+.4 tests \textbf{(9)}.
+.4 utils \textbf{(10)}.
+.3 django\_abai \textbf{(11)}.
+.4 abai\_website \textbf{(12)}.
+.5 static \textbf{(13)}.
+.6 css \textbf{(14)}.
+.6 images \textbf{(15)}.
+.5 templates \textbf{(16)}.
+.4 django\_abai \textbf{(17)}.
+.3 docker \textbf{(18)}.
+.3 method \textbf{(19)}.
+.4 analysis.
+.4 design.
+.4 implementation.
+.3 planning \textbf{(20)}.
+.2 doc \textbf{(21)}.
+.3 PDFs \textbf{(22)}.
+.3 sources \textbf{(23)}.
+}}
+
+\clearpage
+\begin{enumerate}[label=(\arabic*).]
+    \item Contains the \textbf{source code} of Authored by AI.
+    \item Contains code for the \textbf{local application}.
+    \item Contains code for \textbf{user configuration} (GUI included).
+    \item Contains code for \texttt{.TXT} \textbf{data storage} and \textbf{database} (GUI included).
+    \item Stores \textbf{logs} for the project.
+    \item Stores \textbf{saved trained models}.
+    \item Contains \textbf{code scripts} for the local application (GUI included).
+    \item Contains \textbf{images} for the local application's GUI.
+    \item Contains \textbf{unittests}.
+    \item Contains \textbf{utilitary modules} (logging, slicing, configuration (GUI included)).
+    \item Contains code for the \textbf{web application}.
+    \item Django application for the website application.
+    \item Contains \textbf{CSS styling} and \textbf{images} for the website.
+    \item Contains \textbf{CSS styling} for the web interface.
+    \item Contains \textbf{images} for the web interface.
+    \item Contains \textbf{html templates} for the web interface.
+    \item \textbf{Django} project folder.
+    \item Contains \textbf{dockerfiles} and \textbf{yaml} file.
+    \item Contains gathered \textbf{artefacts} (interviews, research and preparation) of the project.
+    \item Contains the planning of the project (\textbf{\texttt{Gantt}} chart).
+    \item Contains documents for \textbf{documentation}.
+    \item Contains \textbf{\texttt{PDFs}} for the \texttt{user guide} and the \texttt{programmer's guide}.
+    \item Contains the \textbf{\texttt{LaTeX}} source files for the \texttt{user guide} and the \texttt{programmer's guide}.
+\end{enumerate}
+\clearpage
+\subsection{Type checking}
+If type hinting is used correctly, it can be useful to detect type related errors before execution. We use the \href{https://mypy.readthedocs.io/en/stable/getting_started.html}{MyPy} module to perform static type checking. To type check the source code, run the following command at the root of the project: 
+\begin{codebox}
+    \large\texttt{\$ mypy ./code}
+\end{codebox}
+\begin{tcolorbox}[colback=blue!10!white,colframe=blue!70!black,title=Note]
+If you have troubles with the MyPy module, please refer to the \href{https://mypy.readthedocs.io/en/stable/}{official MyPy documentation}.
+\end{tcolorbox}

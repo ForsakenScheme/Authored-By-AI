@@ -1,0 +1,28 @@
+\subsection{How to run unit tests?}
+Tests are performed using the \href{https://docs.python.org/3/library/unittest.html}{unittest} module of the standard \texttt{Python} library.
+
+\subsection{Requirements}
+To run the unit tests, you need to have a working development environment. Please refer to the \hyperref[sec:setup-guide]{setup guide} if this is not yet the case. 
+
+\subsection{How to write a unit test?}
+If you want to write a unit test to test out a feature, please proceed like this :
+\begin{enumerate}
+    \item If a test module doesn't yet exist for the feature you need to test, create a new test module named \texttt{\textbf{test\_[module name]}} with the module name being the name of the module that contains the feature to test. \\
+    
+    \item Next, write your test method named like this : \textbf{\texttt{test\_[feature name]}}. The feature name is the name of the method you need to test.
+\end{enumerate}
+\subsection{Unit testing}
+To run the unit tests, run the following command at the root of the project: 
+\begin{codebox}
+    \large\texttt{\$ python -m unittest discover -s code/backend/tests -p "test\_*.py" -v}
+\end{codebox}
+\clearpage
+\subsection{Test coverage}
+Tests coverage analysis is performed using the \href{https://coverage.readthedocs.io/en/7.5.1/}{coverage} module.
+To perform the coverage analysis use the following commands sequentially at the root of the project:
+\begin{codebox}
+    \large\texttt{\$ coverage run -m unittest discover -s code/backend/tests -p "test\_*.py"}\\
+    \large\texttt{\$ coverage html}
+\end{codebox}
+\vspace{0.25cm}
+After this, you should be able to visualize the coverage analysis result by opening the generated \textbf{\texttt{index.html}} file from the \textbf{\texttt{htmlcov}} folder. 

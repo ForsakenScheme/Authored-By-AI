@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center";>
+  <div class="col lg-8 md-8">
+    <div class="card mt-5">
+      <div class="card-header mt-3 ml-3">
+        <button id="configButton" class="btn btn-outline-primary float-right mr-3">Settings</button>
+        <span class='ABAI-letters'> <H2>ABAI : Authored By AI</H2></span>
+        <small class="text-muted"> <H5>A simple AI detection tool for generative AI (ChatGPT) based on machine learning.</H5></small>
+      </div>
+      <div class="card-body mt-4 ml-3 mr-3 text-justify">
+        <h5><strong>Welcome to ABAI !</strong></h5>
+        <br>
+        <h5><strong>Basic Usage</strong></h5>
+        <p>To use the tool, simply input the text you want to analyze as <strong>plain text</strong> in the textbox below and <strong>click</strong> the <strong class="btn btn-primary">Detect Origin</strong> button.</p> 
+        <p>The model will then process the text(s) to provide you the <strong>result(s)</strong> with a <strong>percentage</strong> indicating the certainty of the given result. 
+          Only texts with <strong>at least 50 words</strong> will be accepted, else they will be <strong>skipped</strong>. You can add <strong>multiple paragraphs separated by a new line</strong> for them to be analyzed at once. 
+          Each paragraph will be analyzed and <strong>treated as separate input</strong>. The result(s) will be <strong>displayed</strong> below the "detect origin" button and will contain the <strong>predicted label</strong> with it's <strong>confidence level</strong> expressed in percentage.</p> <br>
+        <h5 ><strong>Advanced Usage</strong></h5>
+        <p>If you want to use a <strong>specific classifier</strong>, you can select it from the <strong class="btn btn-outline-primary">Settings</strong> button and then <strong>click</strong> the <strong class="btn btn-primary">Detect Origin</strong> button. By <strong>default</strong>, the model will use the <strong>Stacking Support Vector Machine</strong> classifier.</p>
+      </div>      
+      <!-- Configuration options div -->
+      <div id="configOptions" class="card-body ml-5" style="display: none;">
+        <div class="row">
+          <!-- Classic classifiers column -->
+          <div class="col">
+            <h5 class="mb-3">Classic classifiers</h5>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" value="Decision Tree" id="decision_tree">
+              <label class="form-check-label" for="decision_tree">Decision Tree</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" value="Gradient Boosting" id="gradient_boosting">
+              <label class="form-check-label" for="gradient_boosting">Gradient Boosting</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" value="Logistic Regression" id="logistic_regression">
+              <label class="form-check-label" for="logistic_regression">Logistic Regression</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" value="Multinomial Naive Bayes" id="multinomial_naive_bayes">
+              <label class="form-check-label" for="multinomial_naive_bayes">Multinomial Naive Bayes</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" value="Random Forest" id="random_forest">
+              <label class="form-check-label" for="random_forest">Random Forest</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" value="Support Vector Machine" id="support_vector_machine">
+              <label class="form-check-label" for="support_vector_machine">Support Vector Machine</label>
+            </div>
+          </div>
+          <!-- Bagging classifiers column -->
+          <div class="col">
+            <h5 class="mb-3">Bagging Classifiers</h5>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" value="Bagging Decision Tree" id="bagging_decision_tree">
+              <label class="form-check-label" for="bagging_decision_tree">Bagging Decision Tree</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" value="Bagging Gradient Boosting" id="bagging_gradient_boosting">
+              <label class="form-check-label" for="bagging_gradient_boosting">Bagging Gradient Boosting</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" value="Bagging Logistic Regression" id="bagging_logistic_regression">
+              <label class="form-check-label" for="bagging_logistic_regression">Bagging Logistic Regression</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" value="Bagging Multinomial Naive Bayes" id="bagging_multinomial_naive_bayes">
+              <label class="form-check-label" for="bagging_multinomial_naive_bayes">Bagging Multinomial Naive Bayes</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" value="Bagging Random Forest" id="bagging_random_forest">
+              <label class="form-check-label" for="bagging_random_forest">Bagging Random Forest</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" value="Bagging Support Vector Machine" id="bagging_support_vector_machine">
+              <label class="form-check-label" for="bagging_support_vector_machine">Bagging Support Vector Machine</label>
+            </div>
+          </div>
+          <!-- Stacking classifiers column -->
+          <div class="col">
+            <h5 class="mb-3">Stacking Classifiers</h5>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" value="Stacking Decision Tree" id="stacking_decision_tree">
+              <label class="form-check-label" for="stacking_decision_tree">Stacking Decision Tree</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" value="Stacking Decision Tree" id="stacking_gradient_boosting">
+              <label class="form-check-label" for="stacking_gradient_boosting">Stacking Gradient Boosting</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" value="Stacking Decision Tree" id="stacking_random_forest">
+              <label class="form-check-label" for="stacking_random_forest">Stacking Random Forest</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" value="Stacking Multinomial Naive Bayes" id="stacking_multinomial_naive_bayes">
+              <label class="form-check-label" for="stacking_multinomial_naive_bayes">Stacking Multinomial Naive Bayes</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" value="Stacking Logistic Regression" id="stacking_logistic_regression">
+              <label class="form-check-label" for="stacking_logistic_regression">Stacking Logistic Regression</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" value="Stacking Support Vector Machine" id="stacking_support_vector_machine">
+              <label class="form-check-label" for="stacking_support_vector_machine">Stacking Support Vector Machine</label>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- End of Configuration options div -->
+      <div class="card-body mt-3 ml-3 mr-3">
+        <!-- Form for text input and detection -->
+        <form id="form_user_input" method="post">
+          {% csrf_token %}
+          <textarea id="user_input" name="user_input" class="form-control" rows="10" style="overflow-y: auto;" placeholder="Please input the text to be analyzed here..." maxlength="10000">{{ input_text }}</textarea>
+          <div id="charCount" class="text-muted charCount">Characters used: <span id="currentCharCount">{{ input_text|length }}</span></div>
+          <button type="submit" class="btn btn-primary btn-block" id="submitButton">Detect Origin</button>
+          <div id="loadingAnimation" style="display: none" class="text-center">
+              <div class="spinner-border text-primary mt-3 center" role="status">
+                  <span class="sr-only">Loading...</span>
+              </div>
+          </div>
+        </form>
+        <!-- Result message div -->
+        <div id="resultMessage" class="mt-3"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Function to update character count
+  function updateCharacterCount() {
+    const user_input = document.getElementById('user_input').value;
+    const charCountSpan = document.getElementById('charCount');
+    const maxLength = 10000;
+
+    // Remove all whitespace characters from the input
+    const usedChars = user_input.length
+    const remainingChars = maxLength - usedChars;
+    charCountSpan.textContent = "Characters remaining: " + remainingChars;
+  }
+
+  // Update character count on page load
+  window.onload = function() {
+    updateCharacterCount();
+  };
+
+  // Unique checkbox selection
+  // Function to handle checkbox selection
+  function handleCheckboxSelection(checkbox) {
+    // Uncheck all checkboxes except the one that was clicked
+    const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+    checkboxes.forEach((cb) => {
+      if (cb !== checkbox) {
+        cb.checked = false;
+      }
+    });
+  }
+
+  // Add event listeners to all checkboxes
+  document.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
+    checkbox.addEventListener('click', () => {
+      handleCheckboxSelection(checkbox);
+    });
+  });
+
+  // Toggable configuration options
+  // Configuration button click event
+  const configButton = document.getElementById('configButton');
+  const configOptions = document.getElementById('configOptions');
+  configButton.addEventListener('click', function() {
+    // Toggle visibility of configuration options div
+    if (configOptions.style.display === 'none') {
+      configOptions.style.display = 'block';
+    } else {
+      configOptions.style.display = 'none';
+      configButton.blur();
+    }
+  });
+
+  // Form submission of input text
+  // Get the form element
+  const form = document.getElementById('form_user_input');
+  const loadingAnimation = document.getElementById('loadingAnimation');
+
+  // Get the textarea element
+  const user_input = document.getElementById('user_input');
+  // Get the character count display element
+  const charCount = document.getElementById('charCount');
+  // Add input event listener to the textarea and update character count
+  user_input.addEventListener('input', function() {
+    updateCharacterCount();
+  });
+
+  // Define a default value if no checkbox was ticked
+  const default_checkbox_value = "Stacking Support Vector Machine";
+
+  // Add event listener for form submission
+  form.addEventListener('submit', function(event) {
+
+    // Prevent the default form submission
+    event.preventDefault();
+
+    // Get the input text from the textarea
+    const user_input = document.getElementById('user_input').value.trim();
+
+    // Check if the input text is empty
+    if (user_input === '') {
+      // Display error message
+      const resultMessage = document.getElementById('resultMessage');
+      resultMessage.innerHTML = '<h5><strong>Result:</strong> Please input some text to analyze first.</h5>';
+      return; // Exit the function
+    }
+
+    // Hide previous result
+    const resultMessage = document.getElementById('resultMessage');
+    resultMessage.innerHTML = '';
+
+    // Display loading animation
+    loadingAnimation.style.display = 'block';
+
+    // Get the value of the selected checkbox (if any), else use the default value
+    const selected_checkbox = document.querySelector('input[type="checkbox"]:checked');
+    const selected_value = selected_checkbox ? selected_checkbox.value : default_checkbox_value;
+
+    // Send an AJAX request to the server
+    fetch('', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-CSRFToken': '{{ csrf_token }}'
+      },
+      body: 'user_input=' + encodeURIComponent(user_input) + '&selected_value=' + encodeURIComponent(selected_value)
+    })
+    .then(response => {
+      // Check if the response indicates an error
+      if (!response.ok) {
+        throw new Error('Error processing the request');
+      }
+      // Parse the response as JSON
+      return response.json();
+    })
+    .then(data => {
+      // Hide loading after server response
+      loadingAnimation.style.display = 'none';
+
+      // Check if there's an error message in the response
+      if (data.error) {
+        // Display the error message to the user
+        resultMessage.innerHTML = `<h5><strong>Error:</strong> ${data.error}</h5>`;
+        return;
+      }
+      // Display the result message below the input text box
+      if (!data.predictions || data.predictions.length === 0) {
+        resultMessage.innerHTML = '<strong>Result:</strong> Please input some text to analyze first.';
+      } else {
+        // Iterate over the predictions and display the results
+        data.predictions.forEach((prediction, index) => {
+          const resultIndex = index + 1;
+          // Extract label and probabilities from the prediction
+          const label = prediction.label;
+          const probabilities = prediction.probabilities;
+          // Determine the result message based on the label
+          let resultMessageText;
+          if (label === "ai") {
+            const ai_probability = probabilities[0] >= 0.9999 ? "≈ 100" : (probabilities[0] * 100).toFixed(2);
+            resultMessageText = `<strong>Result paragraph ${resultIndex}:</strong> Text appears to be written with the help of <strong><span class="red-text">generative AI (${ai_probability}% confidence)</span></strong>.`;
+          } else if (label === "human") {
+            const human_probability = probabilities[1] >= 0.9999 ? "≈ 100" : (probabilities[1] * 100).toFixed(2);
+            resultMessageText = `<strong>Result paragraph ${resultIndex}:</strong> Text appears to be written by a <strong><span class="green-text">Human (${human_probability}% confidence)</span></strong>.`;
+          } else if (label === "skipped (too short)") {
+            resultMessageText = `<strong>Result paragraph ${resultIndex}:</strong> <span class="short">Skipped</span>. The text has to be at least 50 words long for detection to be relevant.`;
+          } else {
+            resultMessageText = `<strong>Result paragraph ${resultIndex}:</strong> An error occurred while analyzing the text.`;
+          }
+          // Append the result message to the resultMessage element
+          resultMessage.innerHTML += `<h5>${resultMessageText}</h5>`;
+        });
+      }
+      // Append the disclaimer message after displaying results
+      resultMessage.innerHTML += `<small class="text-muted disclaimer">Disclaimer: The results are not 100% accurate and should be taken with a grain of salt. The tool is still in development and should not be used as a definitive source of truth.</small>`;
+    })
+    .catch(error => {
+      // Display the error message to the user
+      resultMessage.innerHTML = `<strong>Error:</strong> ${error.message}`;
+    });
+  });
+</script>
+{% endblock %}

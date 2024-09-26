@@ -1,0 +1,32 @@
+\subsection{Troubleshooting}
+\subsubsection{Pip is not recognized as internal/external command}
+\textbf{Error Message:} This error occurs when \texttt{pip} is not in your PATH environment variable. You can try the following instructions to solve this problem:
+\begin{enumerate}
+    \item If you are running Linux, try using \texttt{pip3} instead of \texttt{pip}.
+    \item Add \texttt{pip} to your PATH environment variable by following this \href{https://www.geeksforgeeks.org/how-to-install-  pip-on-windows/}{tutorial}.
+    \item Reinstall Python and \texttt{pip}.
+\end{enumerate}
+\subsubsection{WSL not supported}
+The error message indicates that your Windows machine is not able to run WSL. This could be caused by a \textbf{disabled Windows feature} called “Virtual Machine Platform”. WSL depends on it. And in turn, Docker Desktop depends on WSL.
+
+For more information on WSL and \textbf{virtualisation} on windows, please check out the following guides : 
+
+\begin{enumerate}
+    \item \href{https://learn.microsoft.com/en-us/windows/wsl/troubleshooting}{Windows Subsystem for Linux}
+    \item \href{https://support.microsoft.com/en-us/windows/enable-virtualization-on-windows-11-pcs-c5578302-6e43-4b4b-a449-8ced115f58e1}{Windows 11 Virtualisation}
+    \item \href{https://learn.microsoft.com/en-us/virtualization/hyper-v-on-windows/quick-start/enable-hyper-v}{Windows 10 Hyper-V}
+\end{enumerate}
+\clearpage
+\subsection{FAQ}
+\subsubsection{I have unintentionally deleted the database, what do I do now?}
+You can regenerate the database at all times from the local .TXT files that are shipped with the program or that you have saved yourself. To do this, check out the \hyperref[subsubsec:database]{Database} sub-window.
+
+\subsubsection{Is it possible to perform actions on all models at once?}
+Yes, you are always able to select a single or \textbf{multiple} models \textbf{simultaneously} to perform actions on them. This is especially interesting if you decide to change around settings in the configuration file and want to train, validate or test models in \textbf{bulk}. 
+
+\subsubsection{I have used every option from the configuration menu. Is it supposed to be this slow?}
+During feature extraction before pre-processing, if error detection is enabled as feature, the computation will be slowed down significantly because of multiple API calls to the \href{https://languagetool.org/http-api/}{LanguageTool API}.
+
+\subsubsection{The Python GUI window is stuck and doesn't respond to input. What can I do ?}
+If this happened while performing a complex and resource intensive task and you estimate having waited for long enough, try shrinking the task into smaller and easier sub-tasks to check if it's a performance issue. \\
+\newline If the issue persists and you remember how to replicate the issue, you could also \hyperref[sec:contact]{contact} me with the details and I'll look into it. Furthermore, you can open an issue ticket on the \href{https://github.com/UNamurCSFaculty/2324_INFOB318_ABAI2/issues}{GitHub} page of the ABAI project. Every feedback is welcome ! 

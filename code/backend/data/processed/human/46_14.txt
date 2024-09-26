@@ -1,0 +1,1 @@
+The age, brand, model and configuration of key hardware elements in both organisations should be evaluated. A "rip and replace" approach whereby minimum components belonging to the weaker organisation in the process are retained is least costly in the long run.

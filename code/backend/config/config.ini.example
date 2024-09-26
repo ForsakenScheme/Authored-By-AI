@@ -1,0 +1,33 @@
+# Text Cleaning: Configure text cleaning options
+[Preprocessing]
+punctuation = False  # Remove punctuation (True or False)
+stem = False  # Apply stemming (True or False)
+lemmatize = False  # Apply lemmatization (True or False)
+
+# TextWordCounter: settings for the TextWordCounter
+[TextWordCounter]
+freqDist = False  # Apply frequency distribution (True or False, if False then apply tfidf)
+bigrams = True  # Apply bigrams (True or False, if False, then apply unigrams only)
+
+# FeatureSelection: Set the number of features to select
+[FeatureSelection]
+nb_features = 10000 # Number of features to select for Kbest feature selection using chi2 (Integer > 1 or all, all will keep all features, therefore perform no feature selection)
+
+# FeatureExtractionBeforePreprocessing: Configure feature extraction options before preprocessing
+[FeatureExtractionBeforePreprocessing]
+stopWords = True # Apply ratio of stop words on usefull words as feature (True or False)
+errorDetector = True # Apply error detection for grammar and misspells (True or False) #Slow because of API calls to LanguageTool
+punctuationFrequency = True # Apply punctuation frequency as feature (True or False)
+sentenceLength = True # Apply average sentence length as feature (True or False)
+namedEntity = True # Apply named entity recognition as feature (True or False)
+sentimentAnalysis = True # Apply sentiment analysis as feature (True or False)
+
+# FeatureExtractionAfterPreprocessing: Configure feature extraction options after preprocessing
+[FeatureExtractionAfterPreprocessing]
+textWordCounter = True  # Apply text word counter (True or False)
+wordLength = True # Apply average word length as feature (True or False)
+vocabularySize = True # Apply vocabulary size as feature (True or False)
+
+# Cross Validation: Set the number of folds for cross validation
+[CrossValidation]
+nb_folds = 10  # Number of folds for cross validation (Integer >= 2)

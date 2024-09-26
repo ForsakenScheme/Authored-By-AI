@@ -1,0 +1,17 @@
+\subsection{Pip is not recognized as internal/external command}
+\textbf{Error Message:} This error occurs when \texttt{pip} is not in your PATH environment variable. You can try the following instructions to solve this problem:
+\begin{enumerate}
+    \item If you are running Linux, try using \texttt{pip3} instead of \texttt{pip}.
+    \item Add \texttt{pip} to your PATH environment variable by following this \href{https://www.geeksforgeeks.org/how-to-install-  pip-on-windows/}{tutorial}.
+    \item Reinstall Python and \texttt{pip}.
+\end{enumerate}
+\subsection{WSL not supported}
+The error message indicates that your Windows machine is not able to run WSL. This could be caused by a \textbf{disabled Windows feature} called “Virtual Machine Platform”. WSL depends on it. And in turn, Docker Desktop depends on WSL.
+
+For more information on WSL and \textbf{virtualisation} on windows, please check out the following guides : 
+
+\begin{enumerate}
+    \item \href{https://learn.microsoft.com/en-us/windows/wsl/troubleshooting}{Windows Subsystem for Linux}
+    \item \href{https://support.microsoft.com/en-us/windows/enable-virtualization-on-windows-11-pcs-c5578302-6e43-4b4b-a449-8ced115f58e1}{Windows 11 Virtualisation}
+    \item \href{https://learn.microsoft.com/en-us/virtualization/hyper-v-on-windows/quick-start/enable-hyper-v}{Windows 10 Hyper-V}
+\end{enumerate}

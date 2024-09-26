@@ -1,0 +1,6 @@
+*.__pycache__/*
+.vscode/
+*.cpython*
+*.log
+*.pyc
+*.coverage

@@ -1,0 +1,1 @@
+Developers and organizations must prioritize transparency in AI systems. They should be clear about the limitations and biases inherent in AI models, ensuring that users are informed about potential risks. Transparent AI can empower users to make informed decisions about when and how to rely on AI outputs.

@@ -1,0 +1,84 @@
+\label{sec:source-code-documentation}
+This sections contains the documentation information about the source code. The source code is divided in two parts:
+
+\begin{itemize}
+    \item The \textbf{local} backend application contains the local python PyQt GUI and the logic of the application (preprocessing, feature extraction, etc.).
+    \item The django \textbf{web} application contains the code for the web interface.
+\end{itemize}
+\subsection{The local backend application}
+The local backend application is further divided into sub-modules.
+
+\subsubsection{The main module}
+The main module resides at the following location : 
+\begin{codebox}
+    \large\href{https://github.com/UNamurCSFaculty/2324_INFOB318_ABAI2/blob/main/code/backend/main.py}{\texttt{2324\_INFOB318\_ABAI2/code/backend/main.py}}
+\end{codebox}
+It contains the code related to the main function of the local application, the \texttt{PyQt GUI}. It specifically sets up the \textbf{main window} with a main menu and \textbf{child windows} for every one of it's \textbf{options}.
+
+\subsubsection{The pipelines module}
+\label{subsubsec:pipelines}
+The pipelines module resides at the following location : 
+\begin{codebox}
+    \large\href{https://github.com/UNamurCSFaculty/2324_INFOB318_ABAI2/blob/main/code/backend/scripts/pipelines.py}{\texttt{2324\_INFOB318\_ABAI2/code/backend/scripts/pipelines.py}}
+\end{codebox}
+It contains the code necessary to \textbf{generate} a custom \textbf{scikit-learn pipeline} that contains the steps specified by the \textbf{user configuration}. This pipeline can then be \textbf{saved} and \textbf{loaded} at any time.\\\\ A pipeline is essentially a list of steps constituting what we will call a model. These steps (also called transformers) can then be sequentially applied to data and end with a final predictor that will be used for predictive modelling.
+
+\subsubsection{The preprocessing module}
+The preprocessing module resides at the following location :
+\begin{codebox}
+    \large\href{https://github.com/UNamurCSFaculty/2324_INFOB318_ABAI2/blob/main/code/backend/scripts/preprocessing.py}{\texttt{2324\_INFOB318\_ABAI2/code/backend/scripts/preprocessing.py}}
+\end{codebox}
+It contains the custom transformers and feature unions that will be integrated to the scikit-learn pipelines. This includes a transformer for pre-processing the data and every transformer that will be applied sequentially before and after pre-processing is applied.\\\\ The decision of applying a transformer before or after pre-processing should be taken according to the requirements and compatibility of each method with the pre-processing steps.
+
+\subsubsection{The database functions module}
+The database functions module resides at the following location :
+\begin{codebox}
+    \large\href{https://github.com/UNamurCSFaculty/2324_INFOB318_ABAI2/blob/main/code/backend/scripts/database_functions.py}{\texttt{2324\_INFOB318\_ABAI2/code/backend/scripts/database\_functions.py}}
+\end{codebox}
+It contains all the functions that will be used to manage the project's database. The PyQt window for the database actions are also contained in this module. 
+
+\subsubsection{The detect origin (local) module}
+The detect origin (local) module resides at the following location:
+\begin{codebox}
+    \large\href{https://github.com/UNamurCSFaculty/2324_INFOB318_ABAI2/blob/main/code/backend/scripts/detect_origin_local.py}{\texttt{2324\_INFOB318\_ABAI2/code/backend/scripts/detect\_origin\_local.py}}
+\end{codebox}
+It contains a function to predict labels for unknown texts. Additionally, it contains the PyQt windows for the authorship attribution task and it's result.
+\clearpage
+\subsubsection{The train, validate and test module}
+The train, validate and test module resides at the following location: 
+\begin{codebox}
+    \large\href{https://github.com/UNamurCSFaculty/2324_INFOB318_ABAI2/blob/main/code/backend/scripts/train_validate_test.py}{\texttt{2324\_INFOB318\_ABAI2/code/backend/scripts/train\_validate\_test.py}}
+\end{codebox}
+It contains multiple functions to call training, grid search, learning curve, validation and test methods from \hyperref[subsubsec:pipelines]{custom scikit-learn pipeline}.\\\\Additionally, it contains the PyQt windows responsible for performing actions on models. This includes previously cited methods like training, validation and testing.
+
+\subsubsection{The configuration module}
+The configuration module resides at the following location: 
+\begin{codebox}
+    \large\href{https://github.com/UNamurCSFaculty/2324_INFOB318_ABAI2/blob/main/code/backend/utils/configurating.py}{\texttt{2324\_INFOB318\_ABAI2/code/backend/utils/configurating.py}}
+\end{codebox}
+It contains the config parser methods that extract the user's configuration by reading the config.ini file located at:
+\begin{codebox}
+    \large\href{https://github.com/UNamurCSFaculty/2324_INFOB318_ABAI2/blob/main/code/backend/config/config.ini}{\texttt{2324\_INFOB318\_ABAI2/code/backend/config/config.ini}}
+\end{codebox}
+Additionally, it contains the PyQt windows that let the user edit and save options to the config.ini file. 
+
+\clearpage
+\subsubsection{The logging module}
+The logging module resides at the following location: 
+\begin{codebox}
+    \large\href{https://github.com/UNamurCSFaculty/2324_INFOB318_ABAI2/blob/main/code/backend/utils/log.py}{\texttt{2324\_INFOB318\_ABAI2/code/backend/utils/log.py}}
+\end{codebox}
+It contains a singleton method to initiate a logger object that will be used throughout every backend module. 
+
+\subsubsection{The slicing module}
+The slicing module resides at the following location: 
+\begin{codebox}
+    \large\href{https://github.com/UNamurCSFaculty/2324_INFOB318_ABAI2/blob/main/code/backend/utils/slice_up_essays.py}{\texttt{2324\_INFOB318\_ABAI2/code/backend/utils/slice\_up\_essays.py}}
+\end{codebox}
+It contains a methods to slice up local \texttt{.TXT} files that contain long and continuous essay texts into paragrahps and stores them in labeled \texttt{.TXT} files inside the raw data folder located at :
+\begin{codebox}
+    \large\href{https://github.com/UNamurCSFaculty/2324_INFOB318_ABAI2/blob/main/code/backend/data/raw}{\texttt{2324\_INFOB318\_ABAI2/code/backend/data/raw}}
+\end{codebox}
+Furthermore, a second method slices up texts with their labels to prepare them as sliced lists to later be added into the database. 
+
+
