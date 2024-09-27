@@ -1,3 +1,5 @@
+import configparser
+
 from sklearn.pipeline import Pipeline, FeatureUnion
 from sklearn.metrics import (
     accuracy_score,
@@ -33,12 +35,10 @@ from backend.scripts.preprocessing import (
     FeatureSelection,
 )
 
-
 from joblib import load, dump
 from pathlib import Path
 
 logger = setup_logging("local")
-
 
 class UserConfigPipeline:
     """
@@ -93,8 +93,12 @@ class UserConfigPipeline:
     """
 
     def __init__(self, logger=logger):
+        # get data_language from localization.ini file
+        self.localization_config = configparser.ConfigParser(comment_prefixes="#", inline_comment_prefixes="#")
+        self.localization_config.read("code/backend/config/localization.ini")
         # get all texts and labels from database.sqlite
-        self.X, self.y = get_all_texts_and_labels_from_table("processed")
+        self.data_language = config.get("Data", "language")
+        self.X, self.y = get_all_texts_and_labels_from_table("processed", self.data_language)
         assert len(self.X) == len(self.y)
         assert len(self.X) > 0
         assert len(self.y) > 0
@@ -176,11 +180,7 @@ class UserConfigPipeline:
         Parameters:
             model (str): The name of the model file containing the custom pipeline.
         """
-        file_path = (
-            Path(__file__).resolve().parent.parent.parent
-            / "backend/models"
-            / (model + ".joblib")
-        )
+        file_path = Path(__file__).resolve().parent.parent.parent / f"backend/models/{self.data_language}/{model}.joblib"
         model_pipeline = load(file_path)
         self.custom_pipeline = model_pipeline
 
@@ -421,7 +421,7 @@ class UserConfigPipeline:
             return self.custom_pipeline
         # save the trained model to a file
         with open(
-            ("code/backend/models/" + self.classifier_name + ".joblib"), "wb"
+            ("code/backend/models/" + "/" + self.data_language + "/" + self.classifier_name + ".joblib"), "wb"
         ) as joblib_file:
             dump(self.custom_pipeline, joblib_file)
             self.logger.info("Successfully dumped trained custom pipeline to file.")

@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import configparser
 
 from sklearn.model_selection import StratifiedKFold, learning_curve
 from backend.scripts.pipelines import UserConfigPipeline
@@ -782,12 +783,15 @@ class TrainValidateTestWindow(QMainWindow):
 
     errorOccurred = pyqtSignal(str)
 
-    def __init__(self):
+    def __init__(self, localization_config: configparser.ConfigParser):
         super().__init__()
         self.setWindowTitle("Train, validate and test")
         self.setGeometry(600, 500, 1200, 800)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowMinimizeButtonHint | Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint)
         self.childWindows = []
         self.childPlots = []
+        self.localization_config = localization_config
+        self.data_language = self.localization_config.get("Data", "language")
 
         # Empty windows for initialization
         self.train_result_window = None
@@ -833,6 +837,7 @@ class TrainValidateTestWindow(QMainWindow):
                     """
         )
         self.action_combo.setView(QListView())
+        self.action_combo.view().setCursor(Qt.PointingHandCursor)
         self.actions = [
             "Train (using the configuration file)",
             "Learning curve (using the configuration file)",
@@ -842,6 +847,7 @@ class TrainValidateTestWindow(QMainWindow):
             "Train, validate and test (using the configuration file)",
         ]
         self.action_combo.addItems(self.actions)
+        self.action_combo.setCursor(Qt.PointingHandCursor)
         self.layout.addWidget(self.action_combo)
         self.layout.addSpacing(30)
 
@@ -880,6 +886,7 @@ class TrainValidateTestWindow(QMainWindow):
             end_index = min((i + 1) * num_per_column, num_models)
             for model in models[start_index:end_index]:
                 checkbox = QCheckBox(model)
+                checkbox.setCursor(Qt.PointingHandCursor)
                 column_layout.addWidget(checkbox)
             models_layout.addLayout(column_layout)
             models_layout.addSpacing(30)
@@ -903,6 +910,7 @@ class TrainValidateTestWindow(QMainWindow):
             "}"
         )
         self.start_button.clicked.connect(self.start_action)
+        self.start_button.setCursor(Qt.PointingHandCursor)
         self.layout.addWidget(self.start_button)
         self.layout.addSpacing(25)
 

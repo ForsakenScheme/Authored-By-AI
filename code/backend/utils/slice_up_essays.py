@@ -4,12 +4,12 @@ from backend.utils.log import setup_logging
 logger = setup_logging("local")
 
 
-def slice_up_local_essays():
+def slice_up_local_essays(data_language = "english"):
     """
     For folder in raw folder,
-    for file in ai/human/unknown,
+    for file in ai/human,
     get text from file and slice up according to paragraphs,
-    output the individual paragraphs as new files in ./backend/data/processed/name_of_folder_it_was_from (ai, human, unknown)/index.txt
+    output the individual paragraphs as new files in ./backend/data/processed/name_of_folder_it_was_from (ai, human)/index.txt
 
     Example for paragraphs from "1.txt" from ai :
 
@@ -22,9 +22,10 @@ def slice_up_local_essays():
     and so forth for each paragraph contained in the first essay.
 
     """
-    raw_path = os.path.join(os.getcwd(), "code", "backend", "data", "raw")
-    processed_path = os.path.join(os.getcwd(), "code", "backend", "data", "processed")
-    valid_directories = ["human", "ai", "unknown"]
+    db_path = os.path.join(os.getcwd(), "code", "backend", "data", data_language, str.join(data_language, ".sqlite"))
+    raw_path = os.path.join(db_path, "raw")
+    processed_path = os.path.join(db_path, "processed")
+    valid_directories = ["human", "ai"]
 
     for dir in valid_directories:
         try:

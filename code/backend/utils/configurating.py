@@ -14,6 +14,7 @@ from PyQt5.QtWidgets import (
     QScrollArea,
     QSizePolicy,
 )
+from PyQt5.QtCore import Qt
 
 logger = setup_logging("local")
 
@@ -37,14 +38,14 @@ class ConfigurationWindow(QMainWindow):
         get_items_for_section: Get items for a specific section in the configuration window.
     """
 
-    def __init__(self):
+    def __init__(self, localization_config):
 
         super().__init__()
         self.setWindowTitle("Configuration Menu")
         self.setBaseSize(850, 600)
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
-
+        self.localization_config = localization_config
         layout = QVBoxLayout(self.central_widget)
 
         scroll_area = QScrollArea()
@@ -191,12 +192,14 @@ class ConfigurationWindow(QMainWindow):
                 else:
                     checkbox = QCheckBox(item)
                     checkbox.setChecked(self.configuration[section][item_name])
+                    checkbox.setCursor(Qt.PointingHandCursor)
                     group_layout.addWidget(checkbox)
                     self.options[item_name] = checkbox
                 group_layout.addSpacing(10)
 
         save_button = QPushButton("Save")
         save_button.clicked.connect(self.save_config)
+        save_button.setCursor(Qt.PointingHandCursor)
         layout.addWidget(save_button)
 
     def save_config(self):
@@ -286,9 +289,11 @@ class ConfigurationWindow(QMainWindow):
         with open("code/backend/config/config.ini", "w") as configfile:
             self.config.write(configfile)
         logger.info("Configuration saved successfully.")
-        QMessageBox.information(
+        reply = QMessageBox.information(
             self, "Settings saved", "Settings have been saved successfully."
         )
+        if reply == QMessageBox.Ok:
+            self.close()
 
     def get_items_for_section(self, section):
         """

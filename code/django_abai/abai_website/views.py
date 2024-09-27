@@ -15,16 +15,17 @@ def home(request):
     """
     if request.method == "POST":
 
-        # Retrieve user input and selected model
+        # Retrieve user input, selected model and language
         input_text = request.POST.get("user_input")
         selected_value = request.POST.get("selected_value")
+        selected_data_language = request.POST.get("selected_data_language")
 
         if selected_value is None:
             selected_value = "Stacking Support Vector Machine"
 
         # Detect origin of the input text
         try:
-            predictions = detect_origin(input_text, selected_value)
+            predictions = detect_origin(input_text, selected_value, selected_data_language)
         except Exception as e:
             return JsonResponse({"error": str(e)})
 

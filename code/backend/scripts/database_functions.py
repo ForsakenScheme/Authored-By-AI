@@ -1,5 +1,6 @@
 import sqlite3
 import os
+import configparser
 
 from backend.utils.slice_up_essays import slice_up_local_essays, slice_up_raw_db_essays
 from backend.utils.log import setup_logging
@@ -29,8 +30,18 @@ from PyQt5.QtGui import QPainter, QFont
 
 logger = setup_logging("local")
 
-# path to the database file
-db_path = os.path.join(os.getcwd(), "code", "backend", "data", "database.sqlite")
+def create_path_to_db(data_language = "english"):
+    """
+    Establish the path to the database file for a given data_language.
+
+    Args:
+        data_language (_string_): The data_language for which the database file is needed. Example : english
+        
+    Returns: 
+        db_path: The path to the database file.
+    """
+    db_name = f"{data_language}.sqlite"
+    return os.path.join(os.getcwd(), "code", "backend", "data", data_language, db_name)
 
 
 def get_X_y(data_directory):
@@ -96,12 +107,12 @@ def add_text_locally(text, label):
         raise Exception("An error occurred while trying to write to the file.")
 
 
-def create_processed_table():
+def create_processed_table(data_language = "english"):
     """
     Create the processed table in the database.
     """
     # create the processed table in the database.
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(create_path_to_db(data_language))
     cursor = conn.cursor()
 
     cursor.execute(
@@ -118,12 +129,12 @@ def create_processed_table():
     conn.close()
 
 
-def create_raw_table():
+def create_raw_table(data_language = "english"):
     """
     Create the raw table in the database.
     """
     # create the raw table in the database.
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(create_path_to_db(data_language))
     cursor = conn.cursor()
 
     cursor.execute(
@@ -140,12 +151,12 @@ def create_raw_table():
     conn.close()
 
 
-def initialize_database():
+def initialize_database(data_language = "english"):
     """
     Initialize the database by creating tables if they don't exist.
     """
     # initialize the database by creating tables if they don't exist.
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(create_path_to_db(data_language))
     cursor = conn.cursor()
 
     cursor.execute(
@@ -172,8 +183,7 @@ def initialize_database():
     conn.commit()
     conn.close()
 
-
-def get_all_texts_and_labels_from_table(table):
+def get_all_texts_and_labels_from_table(table, data_language = "english"):
     """
     Retrieve all texts and their labels from the specified table in the database.
 
@@ -184,7 +194,7 @@ def get_all_texts_and_labels_from_table(table):
         tuple: A tuple containing two lists: texts and labels.
     """
     # retrieve all texts and their labels from the table in the database.
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(create_path_to_db(data_language))
     cursor = conn.cursor()
 
     query = f"SELECT text, label FROM {table};"
@@ -200,7 +210,7 @@ def get_all_texts_and_labels_from_table(table):
     return texts, labels
 
 
-def get_nb_of_processed_texts():
+def get_nb_of_processed_texts(data_language = "english"):
     """
     Retrieve the number of texts in the processed table of the database.
 
@@ -208,7 +218,7 @@ def get_nb_of_processed_texts():
         int: The number of texts.
     """
     # retrieve the number of texts in the processed table of the database.
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(create_path_to_db(data_language))
     cursor = conn.cursor()
 
     cursor.execute("SELECT COUNT(*) FROM processed")
@@ -219,7 +229,7 @@ def get_nb_of_processed_texts():
     return nb_of_texts
 
 
-def find_text_id_by_text(text):
+def find_text_id_by_text(text, data_language = "english"):
     """
     Retrieve the ID of a text from the processed table of the database.
 
@@ -230,7 +240,7 @@ def find_text_id_by_text(text):
         int: The ID of the text.
     """
     # retrieve the id of a text from the processed table of the database.
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(create_path_to_db(data_language))
     cursor = conn.cursor()
 
     cursor.execute("SELECT id FROM processed WHERE text = ?", (text,))
@@ -280,12 +290,13 @@ def insert_text_with_label_into_table(text, label, table_name, db_path):
     finally:
         conn.close()
 
-
-def setup_database():
+def setup_database(data_language):
     """
     Set up the database by inserting texts with labels into the 'raw' and 'processed' tables.
     """
-    X, y = get_X_y("code\\backend\\data\\raw")
+    db_path = create_path_to_db(data_language)
+    data_path = os.path.join(os.getcwd(), "code", "backend", "data", data_language, "raw")
+    X, y = get_X_y(data_path)
     sliced_X, sliced_y = slice_up_raw_db_essays(X, y)
 
     for text, label in zip(X, y):
@@ -295,7 +306,6 @@ def setup_database():
             sliced_text, sliced_label, "processed", db_path
         )
     logger.info("Database setup completed.")
-
 
 class DeleteDatabaseDialog(QDialog):
     """
@@ -310,9 +320,10 @@ class DeleteDatabaseDialog(QDialog):
         delete_database: Delete the database file.
     """
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, data_language = "english"):
         super().__init__(parent)
         self.setWindowTitle("Delete Database")
+        self.db_path = create_path_to_db(data_language = "english")
 
         layout = QVBoxLayout(self)
 
@@ -325,9 +336,11 @@ class DeleteDatabaseDialog(QDialog):
         button_layout = QHBoxLayout()
         yes_button = QPushButton("Yes")
         yes_button.clicked.connect(self.delete_database)
+        yes_button.setCursor(Qt.PointingHandCursor)
         button_layout.addWidget(yes_button)
         no_button = QPushButton("No")
         no_button.clicked.connect(self.reject)
+        no_button.setCursor(Qt.PointingHandCursor)
         button_layout.addWidget(no_button)
         layout.addLayout(button_layout)
 
@@ -340,7 +353,19 @@ class DeleteDatabaseDialog(QDialog):
         confirm_dialog.setText("Are you sure you want to delete the database?")
         confirm_dialog.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
         confirm_dialog.setDefaultButton(QMessageBox.No)
+        
+        # Retrieve button references
+        yes_button = confirm_dialog.button(QMessageBox.Yes)
+        no_button = confirm_dialog.button(QMessageBox.No)
+        
+        # Set the cursor for each button
+        yes_button.setCursor(Qt.PointingHandCursor)
+        no_button.setCursor(Qt.PointingHandCursor)
+        
+        # Connect the button click event
         confirm_dialog.buttonClicked.connect(self.handle_confirmation)
+        
+        # Show the dialog
         confirm_dialog.exec_()
 
     def handle_confirmation(self, button):
@@ -355,21 +380,36 @@ class DeleteDatabaseDialog(QDialog):
         else:
             self.reject()
 
-    def delete_database(self):
+    def delete_database(self, data_language):
         """
         Delete the database file.
         """
         try:
-            os.remove(db_path)
+            os.remove(create_path_to_db(data_language))
             logger.info("Database deleted successfully.")
-            QMessageBox.information(self, "Success", "Database deleted successfully.")
-            self.accept()
+            
+            # Create an information message box
+            success_dialog = QMessageBox.information(self, "Success", "Database deleted successfully.")
+            
+            # Retrieve the button reference and set the cursor to pointing hand
+            success_button = success_dialog.button(QMessageBox.Ok)
+            success_button.setCursor(Qt.PointingHandCursor)
+
+            self.accept() 
         except FileNotFoundError:
-            QMessageBox.warning(self, "Warning", "Database not found.")
+            warning_dialog = QMessageBox.warning(self, "Warning", "Database not found.")
+            # Set the cursor for the warning dialog's button
+            warning_button = warning_dialog.button(QMessageBox.Ok)
+            warning_button.setCursor(Qt.PointingHandCursor)
+
             logger.error("Database to delete not found.")
-            self.reject()
+            self.reject() 
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"An error occurred: {str(e)}")
+            error_dialog = QMessageBox.critical(self, "Error", f"An error occurred: {str(e)}")
+            # Set the cursor for the error dialog's button
+            error_button = error_dialog.button(QMessageBox.Ok)
+            error_button.setCursor(Qt.PointingHandCursor)
+
             logger.error(f"An error occurred: {str(e)}")
             self.reject()
 
@@ -390,12 +430,12 @@ class DeleteTextDialog(QDialog):
         get_all_ids_and_texts_from_table: Retrieve all IDs and texts from the selected table.
         delete_selected_texts: Delete the texts that are selected in the table.
     """
-
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, data_language = "english"):
         super().__init__(parent)
         self.setWindowTitle("Delete Database")
-        self.setGeometry(100, 100, 1400, 1000)
-        self.setWindowFlags(self.windowFlags() | Qt.WindowMinimizeButtonHint)
+        self.setGeometry(100, 100, 1200, 600)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowMinimizeButtonHint | Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint)
+        self.data_language = data_language
         layout = QVBoxLayout(self)
         label = QLabel("Select a table from the dropbox down below:")
         layout.addWidget(label)
@@ -406,10 +446,10 @@ class DeleteTextDialog(QDialog):
         self.table_widget.setHorizontalHeaderLabels(["ID", "Text", "Select"])
 
         # Set column widths
-        table_width = self.width() - 20  # Adjust for margins
-        self.table_widget.setColumnWidth(0, table_width // 10)  # ID
-        self.table_widget.setColumnWidth(1, 8 * table_width // 10)  # Text
-        self.table_widget.setColumnWidth(2, table_width // 10)  # Select
+        table_width = self.width() - 20  
+        self.table_widget.setColumnWidth(0, table_width // 10)
+        self.table_widget.setColumnWidth(1, 8 * table_width // 10)
+        self.table_widget.setColumnWidth(2, table_width // 10)
 
         # Set alignment for ID and Select columns
         header = self.table_widget.horizontalHeader()
@@ -422,10 +462,13 @@ class DeleteTextDialog(QDialog):
 
         # Dropdown for selecting the table
         self.table_selector = QComboBox()
-        tables = self.get_all_tables_from_database()
+        self.table_selector.setCursor(Qt.PointingHandCursor)
+        tables = self.get_all_tables_from_database(data_language = self.data_language)
         if tables:
             for table in tables:
                 self.table_selector.addItem(table[0])
+        else : 
+            self.table_selector.addItem("No tables found")
         self.table_selector.setStyleSheet(
             """
         QComboBox QAbstractItemView::item {
@@ -440,6 +483,7 @@ class DeleteTextDialog(QDialog):
         )
         self.table_selector.setView(QListView())
         self.table_selector.currentIndexChanged.connect(self.on_table_selected)
+        self.table_selector.view().setCursor(Qt.PointingHandCursor)
         layout.addWidget(self.table_selector)
         if tables:
             default_table = tables[0][0]
@@ -460,12 +504,14 @@ class DeleteTextDialog(QDialog):
         button_layout = QHBoxLayout()
         delete_button = QPushButton("Delete Selected")
         delete_button.clicked.connect(self.delete_selected_texts)
+        delete_button.setCursor(Qt.PointingHandCursor)
         button_layout.addWidget(delete_button)
         layout.addLayout(button_layout)
 
         # Add button for select/deselect all checkboxes
         select_button = QPushButton("Select/Deselect All")
         select_button.clicked.connect(self.toggle_checkboxes)
+        select_button.setCursor(Qt.PointingHandCursor)
         button_layout.addWidget(select_button)
 
     def toggle_checkboxes(self):
@@ -541,7 +587,7 @@ class DeleteTextDialog(QDialog):
                 self.table_widget.setItem(row_index, 1, text_item)
                 self.table_widget.setItem(row_index, 2, checkbox_item)
 
-    def get_all_tables_from_database(self):
+    def get_all_tables_from_database(self, data_language = "english"):
         """
         Retrieve a list of all tables from the database.
 
@@ -549,10 +595,10 @@ class DeleteTextDialog(QDialog):
             tables: A list of table names.
         """
         try:
-            conn = sqlite3.connect(db_path)
+            conn = sqlite3.connect(create_path_to_db(data_language))
         except sqlite3.OperationalError:
             initialize_database()
-            conn = sqlite3.connect(db_path)
+            conn = sqlite3.connect(create_path_to_db(data_language))
 
         cursor = conn.cursor()
         try:
@@ -568,7 +614,7 @@ class DeleteTextDialog(QDialog):
 
         return tables
 
-    def get_all_ids_and_texts_from_table(self, table):
+    def get_all_ids_and_texts_from_table(self, table, data_language = "english"):
         """
         Retrieve all IDs and texts from the selected table.
 
@@ -580,10 +626,10 @@ class DeleteTextDialog(QDialog):
         """
         try:
             try:
-                conn = sqlite3.connect(db_path)
+                conn = sqlite3.connect(create_path_to_db(data_language))
             except sqlite3.OperationalError:
                 initialize_database()
-                conn = sqlite3.connect(db_path)
+                conn = sqlite3.connect(create_path_to_db(data_language))
             cursor = conn.cursor()
             try:
                 cursor.execute(f"SELECT id, text FROM {table};")
@@ -617,7 +663,7 @@ class DeleteTextDialog(QDialog):
             # Refresh the table after deletion
             self.populate_table(selected_table)
 
-    def delete_selected_texts(self):
+    def delete_selected_texts(self, data_language):
         selected_rows = []
         for row_index in range(self.table_widget.rowCount()):
             checkbox_item = self.table_widget.item(row_index, 2)
@@ -631,7 +677,7 @@ class DeleteTextDialog(QDialog):
             # Get the current selected table
             selected_table = self.table_selector.currentText()
 
-            conn = sqlite3.connect(db_path)
+            conn = sqlite3.connect(create_path_to_db(data_language))
             cursor = conn.cursor()
             try:
                 for index in selected_rows:
@@ -667,7 +713,6 @@ class DeleteTextDialog(QDialog):
             # Display deletion results
             self.display_result_messages(success_messages, failed_messages)
 
-
 class BetterInputDialog(QDialog):
     """
     A custom input dialog for entering text.
@@ -676,17 +721,18 @@ class BetterInputDialog(QDialog):
         name (str): The name associated with the text being entered.
 
     Methods:
-        on_resize: Adjust the size of the text edit widget when the dialog is resized.
         getText: Display the dialog and return the entered text if accepted, otherwise return None.
     """
-
     def __init__(self, parent=None, name="ai"):
         super().__init__(parent)
         self.setWindowTitle(f"Add {name} Text")
-        self.setWindowFlags(self.windowFlags() | Qt.WindowMinimizeButtonHint)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowMinimizeButtonHint | Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint)
         self.name = name
+        self.setGeometry(100, 100, 1400, 900)
 
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(50, 50, 50, 50)  
+        layout.setSpacing(30)
 
         # Add a descriptive text above the text area
         description_label = QLabel(
@@ -695,58 +741,31 @@ class BetterInputDialog(QDialog):
         layout.addWidget(description_label)
 
         # Add a spacer to push the text area downward
-        spacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
-        layout.addItem(spacer)
+        layout.addSpacing(20) 
 
-        # Create a horizontal layout for centering the text edit
-        text_layout = QHBoxLayout()
-        text_layout.addSpacerItem(
-            QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
-        )
-
-        # Add a larger text edit for input
+        # Create a larger text edit for input
         self.text_edit = QTextEdit()
         self.text_edit.setLineWrapMode(QTextEdit.WidgetWidth)
-        text_layout.addWidget(self.text_edit)
-
-        text_layout.addSpacerItem(
-            QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
-        )
-        layout.addLayout(text_layout)
-
-        # Add a spacer to push the buttons downward
-        spacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
-        layout.addItem(spacer)
+        self.text_edit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.text_edit.setMinimumHeight(300)
+        layout.addWidget(self.text_edit)
 
         # Add buttons for OK and Cancel
         button_layout = QHBoxLayout()
+        button_layout.setSpacing(30) 
         ok_button = QPushButton("OK")
         ok_button.clicked.connect(self.accept)
+        ok_button.setCursor(Qt.PointingHandCursor)
+        ok_button.setStyleSheet("padding: 10px;")
         button_layout.addWidget(ok_button)
+
         cancel_button = QPushButton("Cancel")
         cancel_button.clicked.connect(self.reject)
+        cancel_button.setCursor(Qt.PointingHandCursor)
+        cancel_button.setStyleSheet("padding: 10px;") 
         button_layout.addWidget(cancel_button)
+
         layout.addLayout(button_layout)
-
-        # Set initial size
-        self.resize(1100, 700)
-
-        # Connect resizing function
-        self.resizeEvent = self.on_resize
-
-    def on_resize(self, event):
-        """
-        Adjust the size of the text edit widget when the dialog is resized.
-
-        Parameters:
-            event: The resize event.
-        """
-        width = self.width()
-        height = self.height()
-
-        # Adjust text edit size
-        self.text_edit.setFixedWidth(width - 100)
-        self.text_edit.setFixedHeight(height - 200)
 
     def getText(self):
         """
@@ -766,7 +785,6 @@ class BetterInputDialog(QDialog):
             else:
                 return text.strip()
         return None
-
 
 class BoldGroupBox(QGroupBox):
     """
@@ -809,15 +827,26 @@ class DatabaseWindow(QMainWindow):
         insert_text_into_processed_table: Insert text into the 'processed' table of the database.
     """
 
-    def __init__(self):
+    def __init__(self, localization_config: configparser.ConfigParser):
         super().__init__()
-        self.setWindowTitle("Database update")
-        self.setContentsMargins(20, 20, 20, 20)
+        self.setWindowTitle("Database Update")
+        self.setBaseSize(850, 600)
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
+        self.localization_config = localization_config
+        self.data_language = localization_config.get("Data", "language")
 
         layout = QVBoxLayout(self.central_widget)
-        self.central_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+        # Create a scroll area
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True) 
+        layout.addWidget(scroll_area)
+
+        scroll_widget = QWidget()
+        scroll_layout = QVBoxLayout(scroll_widget)
+
+        scroll_area.setWidget(scroll_widget)
 
         sections = [
             ("Delete Database", "Delete the database file.", self.delete_database),
@@ -852,11 +881,13 @@ class DatabaseWindow(QMainWindow):
                 self.add_human_text,
             ),
         ]
+
         for section, description, handler in sections:
             group_box = BoldGroupBox(section)
             group_layout = QVBoxLayout(group_box)
             group_layout.addSpacing(10)
-            layout.addWidget(group_box)
+
+            scroll_layout.addWidget(group_box)
 
             description_label = QLabel(description)
             group_layout.addWidget(description_label)
@@ -864,6 +895,7 @@ class DatabaseWindow(QMainWindow):
 
             button = QPushButton(section)
             button.clicked.connect(handler)
+            button.setCursor(Qt.PointingHandCursor)
             group_layout.addSpacing(5)
             group_layout.addWidget(button)
             group_layout.addSpacing(10)
@@ -875,26 +907,38 @@ class DatabaseWindow(QMainWindow):
         self.ai_dialog = None
         self.human_dialog = None
 
+    def closeEvent(self, event):
+        """Override the close event to close open dialogs."""
+        if self.local_ai_dialog:
+            self.local_ai_dialog.close()
+        if self.local_human_dialog:
+            self.local_human_dialog.close()
+        if self.ai_dialog:
+            self.ai_dialog.close()
+        if self.human_dialog:
+            self.human_dialog.close()
+        event.accept()
+
     def delete_database(self):
         """
         Open a dialog to delete the database file.
         """
-        dialog = DeleteDatabaseDialog(self)
+        dialog = DeleteDatabaseDialog(self, data_language = self.data_language)
         dialog.exec_()
 
     def delete_text_from_table(self):
         """
         Open a dialog to delete a text from the database by using its index.
         """
-        dialog = DeleteTextDialog(self)
+        dialog = DeleteTextDialog(self, data_language = self.data_language)
         dialog.show()
 
     def update_database(self):
         """
         Update the database by slicing up existing local texts and inserting them into the database.
         """
-        slice_up_local_essays()
-        setup_database()
+        slice_up_local_essays(self.data_language)
+        setup_database(self.data_language)
         QMessageBox.information(self, "Success", "Database updated successfully.")
 
     def add_local_ai_text(self):
@@ -947,21 +991,7 @@ class DatabaseWindow(QMainWindow):
             self.insert_text_into_raw_table(text, label="human")
             self.insert_text_into_processed_table(text, label="human")
 
-    def closeEvent(self, event):
-        """
-        Override the close event to close open dialogs.
-        """
-        if self.ai_dialog:
-            self.ai_dialog.close()
-        if self.human_dialog:
-            self.human_dialog.close()
-            self.ai_dialog.close()
-        if self.local_ai_dialog:
-            self.local_ai_dialog.close()
-        if self.local_human_dialog:
-            self.local_human_dialog.close()
-
-    def insert_text_into_raw_table(self, text, label):
+    def insert_text_into_raw_table(self, text, label, data_language = "english"):
         """
         Insert text into the 'raw' table of the database.
 
@@ -970,7 +1000,7 @@ class DatabaseWindow(QMainWindow):
             label: The label associated with the text.
         """
         try:
-            conn = sqlite3.connect(db_path)
+            conn = sqlite3.connect(create_path_to_db(data_language))
         except sqlite3.OperationalError:
             QMessageBox.warning(
                 self,
@@ -1001,7 +1031,7 @@ class DatabaseWindow(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "Error", f"An error occurred: {str(e)}")
 
-    def insert_text_into_processed_table(self, texts, label):
+    def insert_text_into_processed_table(self, texts, label, data_language = "english"):
         """
         Insert text into the 'processed' table of the database.
 
@@ -1010,13 +1040,13 @@ class DatabaseWindow(QMainWindow):
             label: The label associated with the text.
         """
         try:
-            conn = sqlite3.connect(db_path)
+            conn = sqlite3.connect(create_path_to_db(data_language))
         except sqlite3.OperationalError:
             logger.warning(
                 "Database could not be found. Creating one and adding text next."
             )
             initialize_database()
-            conn = sqlite3.connect(db_path)
+            conn = sqlite3.connect(create_path_to_db(data_language))
         paragraphs = texts.split("\n")
         # Get rid of empty paragraphs
         paragraphs = [

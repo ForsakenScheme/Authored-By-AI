@@ -1,4 +1,5 @@
 import numpy as np
+import configparser
 
 from joblib import load
 from pathlib import Path
@@ -165,12 +166,15 @@ class DetectOriginWindow(QMainWindow):
         child_windows (list): List to store child windows.
     """
 
-    def __init__(self):
+    def __init__(self, localization_config: configparser.ConfigParser):
         super().__init__()
         self.setWindowTitle("Detect Origin")
+        self.setWindowFlags(self.windowFlags() | Qt.WindowMinimizeButtonHint | Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint) 
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         self.child_windows = []
+        self.localization_config = localization_config
+        self.data_language = self.localization_config.get("Data", "language")
 
         self.layout = QVBoxLayout(central_widget)
         self.layout.setContentsMargins(50, 50, 50, 50)  # Add margins
@@ -199,6 +203,7 @@ class DetectOriginWindow(QMainWindow):
         classifier_label = QLabel("Select Classifier:")
         self.layout.addWidget(classifier_label)
         self.classifier_combo = QComboBox()
+        self.classifier_combo.setCursor(Qt.PointingHandCursor)
         classifiers = [
             "Decision Tree",
             "Gradient Boosting",
@@ -234,12 +239,14 @@ class DetectOriginWindow(QMainWindow):
         )
         # Set the view to a list view to make it scrollable
         self.classifier_combo.setView(QListView())
+        self.classifier_combo.view().setCursor(Qt.PointingHandCursor)
         self.layout.addWidget(self.classifier_combo)
         self.layout.addSpacing(20)
 
         # Button
         detect_button = QPushButton("Detect Origin")
         detect_button.clicked.connect(self.detect_origin)
+        detect_button.setCursor(Qt.PointingHandCursor)
         self.layout.addWidget(detect_button)
 
         # Add loading message

@@ -17,10 +17,14 @@ from PyQt5.QtWidgets import (
     QPushButton,
     QLabel,
     QMessageBox,
+    QComboBox,
+    QDialog,
+    QHBoxLayout,
 )
-from PyQt5.QtGui import QFont, QPixmap, QPainter
-from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QFont, QPixmap, QPainter, QIcon
+from PyQt5.QtCore import Qt, QSize
 
+import configparser
 
 class BackgroundWidget(QWidget):
     def __init__(self, parent=None):
@@ -32,12 +36,67 @@ class BackgroundWidget(QWidget):
             self.rect(), QPixmap("code/backend/static/images/Background.png")
         )
 
+class SettingsWindow(QDialog):
+    def __init__(self, parent=None, localization_config=None):
+        super().__init__(parent)
+        self.localization_config = localization_config
+        self.parent_window = parent
+        self.setWindowTitle("Settings")
+        self.setFixedSize(300, 150)
+
+        layout = QVBoxLayout()
+
+        # Language selection
+        self.language_label = QLabel("Select data language:")
+        self.language_combo = QComboBox()
+        self.language_combo.addItems(["English", "French"])
+
+        # Set current language
+        if self.parent_window:
+            current_language = self.parent_window.data_language.capitalize()
+            index = self.language_combo.findText(current_language)
+            if index != -1:
+                self.language_combo.setCurrentIndex(index)
+
+        # Layout settings
+        layout.addWidget(self.language_label)
+        layout.addWidget(self.language_combo)
+
+        # Confirm button
+        self.confirm_button = QPushButton("Confirm")
+        self.confirm_button.clicked.connect(self.apply_language_change)
+        layout.addWidget(self.confirm_button)
+
+        self.setLayout(layout)
+
+    def apply_language_change(self):
+        """Pass selected language to the parent window."""
+        selected_language = self.language_combo.currentText().lower()
+        
+        if self.parent_window:
+            self.parent_window.close_all_child_windows()
+            self.parent_window.set_data_language(selected_language)
+        
+        # Save the configuration
+        if self.localization_config:
+            self.localization_config.set("Data", "language", selected_language)
+            with open("code/backend/config/localization.ini", "w") as configfile:
+                self.localization_config.write(configfile)
+                
+        QMessageBox.information(
+            self, "Data language changed", "Language settings have been changed successfully."
+        )
+        self.accept()
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("ABAI : Authored by AI")
-        self.setFixedSize(1600, 800)
+        self.setMinimumSize(1600, 800)
+        self.localization_config = configparser.ConfigParser(comment_prefixes="#", inline_comment_prefixes="#")
+        self.localization_config.read("code/backend/config/localization.ini")
+        self.data_language = self.localization_config.get("Data", "language")
+
         central_widget = BackgroundWidget()
         self.setCentralWidget(central_widget)
 
@@ -51,11 +110,27 @@ class MainWindow(QMainWindow):
         picture_label.setAlignment(Qt.AlignRight | Qt.AlignTop)
         layout.addWidget(picture_label)
 
+        # Add cogwheel settings button in the top left corner
+        top_bar_layout = QHBoxLayout()
+        top_bar_layout.setContentsMargins(100, 10, 10, 10)
+        # Load the cogwheel image as the button icon
+        settings_button = QPushButton()
+        settings_icon = QPixmap("code/backend/static/images/Cogwheel.png")
+        scaled_icon = settings_icon.scaled(80, 80, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        settings_button.setIcon(QIcon(scaled_icon))
+        settings_button.setIconSize(QSize(80, 80))
+        settings_button.setFixedSize(80, 80)
+        settings_button.setStyleSheet("border: none;")
+        settings_button.clicked.connect(self.open_settings_window)
+        settings_button.setCursor(Qt.PointingHandCursor)
+        top_bar_layout.addWidget(settings_button, alignment=Qt.AlignLeft)
+        layout.addLayout(top_bar_layout)
+
         # Add main text title
         main_title_label = QLabel("ABAI: Authored by AI")
         main_title_label.setAlignment(Qt.AlignCenter)
         main_title_label.setStyleSheet(
-            "font-size: 24pt; font-weight: bold; color: #333;"
+            "font-size: 36pt; font-weight: bold; color: #333;" 
         )
         layout.addWidget(main_title_label)
         layout.addSpacing(50)
@@ -73,24 +148,26 @@ class MainWindow(QMainWindow):
 
         for button_text, handler in menu_buttons:
             button = QPushButton(button_text)
-            button.setFixedWidth(max_width * 15)  # Adjust multiplier as needed
+            button.setFixedWidth(max_width * 15)
             button.clicked.connect(handler)
             button.setStyleSheet(
                 "QPushButton {"
                 "   background-color:   #a1926b;"
                 "   border: none;"
                 "   color: #37342b;"
-                "   padding: 15px 0;"
+                "   padding: 20px 0;"  
                 "   text-align: center;"
                 "   border-radius: 8px;"
-                "}"
+                "   font-size: 18pt;"  
+                "} "
                 "QPushButton:hover {"
                 "   background-color:   #a1836b;"
                 "}"
             )
+            button.setCursor(Qt.PointingHandCursor)
             layout.addWidget(button, alignment=Qt.AlignHCenter)
-            layout.addSpacing(10)  # Add spacing between buttons
-        layout.addSpacing(100)  # Add extra space at the bottom
+            layout.addSpacing(10)
+        layout.addSpacing(100)
 
         # Initialize window attributes
         self.database_window = None
@@ -98,33 +175,37 @@ class MainWindow(QMainWindow):
         self.train_validate_test_window = None
         self.detect_origin_window = None
 
-    # signal handler to close the TrainValidateTestWindow on error
-    def closeTrainValidateTestWindow(self):
-        if self.train_validate_test_window:
-            self.train_validate_test_window.close()
+    def set_data_language(self, language):
+        """Set the data language locally."""
+        self.data_language = language
+
+    def open_settings_window(self):
+        """Open the settings window to select language."""
+        settings_window = SettingsWindow(localization_config=self.localization_config)
+        settings_window.exec_()
 
     def open_database_window(self):
-        self.database_window = DatabaseWindow()
+        """Open the database window with the selected data language."""
+        self.database_window = DatabaseWindow(localization_config=self.localization_config)
         self.database_window.show()
 
     def open_configuration_window(self):
-        self.configuration_window = ConfigurationWindow()
+        """Open the configuration window with the selected data language."""
+        self.configuration_window = ConfigurationWindow(localization_config=self.localization_config)
         self.configuration_window.show()
 
     def open_train_test_validate_window(self):
-        self.train_validate_test_window = TrainValidateTestWindow()
+        """Open the train, test, and validate window with the selected data language."""
+        self.train_validate_test_window = TrainValidateTestWindow(localization_config=self.localization_config)
         self.train_validate_test_window.show()
-        self.train_validate_test_window.errorOccurred.connect(
-            self.closeTrainValidateTestWindow
-        )
-        self.train_validate_test_window.setup_pipeline()
 
     def open_detect_origin_window(self):
-        self.detect_origin_window = DetectOriginWindow()
+        """Open the detect origin window with the selected data language."""
+        self.detect_origin_window = DetectOriginWindow(localization_config=self.localization_config)
         self.detect_origin_window.show()
 
     def closeEvent(self, event):
-        # Display a message box for confirmation when the user tries to exit the application
+        """Display a message box for confirmation when the user tries to exit the application."""
         reply = QMessageBox.question(
             self,
             "Confirm Exit",
@@ -137,6 +218,16 @@ class MainWindow(QMainWindow):
         else:
             event.ignore()
 
+    def close_all_child_windows(self):
+        """Close all child windows when the language is changed."""
+        if self.database_window:
+            self.database_window.close()
+        if self.configuration_window:
+            self.configuration_window.close()
+        if self.train_validate_test_window:
+            self.train_validate_test_window.close()
+        if self.detect_origin_window:
+            self.detect_origin_window.close()
 
 def main():
     app = QApplication([])

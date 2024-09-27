@@ -3,7 +3,7 @@
 <div class="row justify-content-center";>
   <div class="col lg-8 md-8">
     <div class="card mt-5">
-      <div class="card-header mt-3 ml-3">
+      <div class="card-header mt-3 ml-3 mr-3">
         <button id="configButton" class="btn btn-outline-primary float-right mr-3">Settings</button>
         <span class='ABAI-letters'> <H2>ABAI : Authored By AI</H2></span>
         <small class="text-muted"> <H5>A simple AI detection tool for generative AI (ChatGPT) based on machine learning.</H5></small>
@@ -112,19 +112,53 @@
       <div class="card-body mt-3 ml-3 mr-3">
         <!-- Form for text input and detection -->
         <form id="form_user_input" method="post">
-          {% csrf_token %}
-          <textarea id="user_input" name="user_input" class="form-control" rows="10" style="overflow-y: auto;" placeholder="Please input the text to be analyzed here..." maxlength="10000">{{ input_text }}</textarea>
-          <div id="charCount" class="text-muted charCount">Characters used: <span id="currentCharCount">{{ input_text|length }}</span></div>
-          <button type="submit" class="btn btn-primary btn-block" id="submitButton">Detect Origin</button>
-          <div id="loadingAnimation" style="display: none" class="text-center">
-              <div class="spinner-border text-primary mt-3 center" role="status">
-                  <span class="sr-only">Loading...</span>
-              </div>
-          </div>
+            {% csrf_token %}
+            
+            <!-- Text input field with language dropdown hint -->
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h5 class="mb-0">Input Text</h5>
+                <!-- Language selection dropdown button -->
+                <div class="btn-group">
+                    <button class="btn btn-outline-primary dropdown-toggle" type="button" id="languageDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                        <span id="selectedFlag">🇬🇧</span>
+                        <span id="selectedLanguage">English</span>
+                    </button>
+                    <div class="dropdown-menu dropdown-menu-right">
+                        <button class="dropdown-item" type="button" onclick="selectLanguage('🇬🇧', 'English', 'english')">🇬🇧 English</button>
+                        <button class="dropdown-item" type="button" onclick="selectLanguage('🇫🇷', 'French', 'french')">🇫🇷 French</button>
+                        <button class="dropdown-item" type="button" onclick="selectLanguage('🇩🇪', 'German', 'german')">🇩🇪 German</button>
+                    </div>
+                </div>
+            </div>
+    
+            <!-- Hidden input field to store the selected language -->
+            <input type="hidden" id="selected_data_language" name="selected_data_language" value="english">
+    
+            <!-- Text area for user input -->
+            <textarea id="user_input" name="user_input" class="form-control" rows="10" style="overflow-y: auto;" placeholder="Please input the text to be analyzed here..." maxlength="10000">{{ input_text }}</textarea>
+            <div id="charCount" class="text-muted charCount">Characters used: <span id="currentCharCount">{{ input_text|length }}</span></div>
+    
+            <!-- Submit button and loading spinner -->
+            <button type="submit" class="btn btn-primary btn-block" id="submitButton">Detect Origin</button>
+            <div id="loadingAnimation" style="display: none" class="text-center">
+                <div class="spinner-border text-primary mt-3 center" role="status">
+                    <span class="sr-only">Loading...</span>
+                </div>
+            </div>
         </form>
+    
         <!-- Result message div -->
         <div id="resultMessage" class="mt-3"></div>
-      </div>
+    </div>
+
+    <!-- Script to update language selection -->
+    <script>
+      function selectLanguage(flag, languageName, languageValue) {
+        document.getElementById('selectedFlag').innerText = flag;
+        document.getElementById('selectedLanguage').innerText = languageName;
+        document.getElementById('selected_data_language').value = languageValue;
+      }
+    </script>    
     </div>
   </div>
 </div>
@@ -232,7 +266,7 @@
         'Content-Type': 'application/x-www-form-urlencoded',
         'X-CSRFToken': '{{ csrf_token }}'
       },
-      body: 'user_input=' + encodeURIComponent(user_input) + '&selected_value=' + encodeURIComponent(selected_value)
+      body: 'user_input=' + encodeURIComponent(user_input) + '&selected_value=' + encodeURIComponent(selected_value) +'&selected_data_language=' + encodeURIComponent(document.getElementById('selected_data_language').value)
     })
     .then(response => {
       // Check if the response indicates an error

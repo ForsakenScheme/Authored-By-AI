@@ -5,7 +5,7 @@ from pathlib import Path
 from sklearn.pipeline import Pipeline
 
 
-def detect_origin(texts: list, model: str = "Stacking Support Vector Machine") -> str:
+def detect_origin(texts: list, model: str = "Stacking Support Vector Machine", data_language: str = "english") -> str:
     """
     Detects the origin of the input text using the specified model.
 
@@ -13,16 +13,14 @@ def detect_origin(texts: list, model: str = "Stacking Support Vector Machine") -
 
         texts (list): The input text to detect the origin of.
         model (str): The name of the model to use for prediction. Default is "Stacking Support Vector Machine".
+        data_language (str): The language of the data used to train the model. Default is "english".
 
     Returns:
         predictions (list[tuple(predicted_label, predicted_probability)]): The list containing predicted label and predicted probability for each of the input texts.
     """
     # Construct the file path
-    file_path = (
-        Path(__file__).resolve().parent.parent.parent
-        / "backend/models"
-        / (model + ".joblib")
-    )
+    file_path = Path(__file__).resolve().parent.parent.parent / f"backend/models/{data_language}/{model}.joblib"
+    print(file_path)
     try:
         # Load the model file
         model_pipeline = load(file_path)
