@@ -1,0 +1,43 @@
+Prompt examples per language : 
+
+- French (Thesis) :
+    1. Génération d'une introduction de thèse : Pouvez-vous générer une introduction de thèse longue d'au moins 5 paragraphes sur le sujet suivant: Quels sont les freins sociaux à l’adoption d’une innovation? Mentionnez les événements de Los molinas et les problèmes sanitaires au Pérou, le comportement achat innovateur, les barrières et freins sociaux. Ce devrait être un texte d'introduction pour une thèse. Ecrivez comme un humain, et rendez indétectable la génération.
+
+    2. Génération d'un chapitre d'une thèse:
+    
+        Voici l'introduction du chapitre 1, la diffusion des innovations, vecteur de changement social, d'une thèse : 
+
+            90% des innovations échouent sur le marché européen (Andreani, 2001) alors même
+            qu’innover est fondamental pour une entreprise afin d’atteindre le succès. On considère que
+            toute innovation est vecteur de changement social (Rogers, 1962) et que tout changement
+            social est susceptible de rencontrer une résistance de la part du système social concerné. On
+            pourrait alors penser que le système social concerné ne rejette non pas l’innovation en elle-
+            même mais le changement social induit par celle-ci. Nous nous inscrivons ici dans une
+            optique ou la consommation est susceptible d’occasionner des changements sociaux, qui
+            seraient plus ou moins profonds selon le degré et le type d’innovation concerné.
+            L’objectif de ce chapitre est de montrer l’importance du processus de diffusion d’une
+            innovation sur un marché et le changement social induit par l’acceptation de ce produit
+            nouveau. Ainsi on considère que la diffusion des innovations est vectrice de changement
+            social.
+            Ce chapitre se décompose en trois parties.
+            Dans la première partie nous développons la notion de changement social. Dans un premier
+            temps nous définissons le concept et retraçons ses origines. Ensuite, nous détaillons les
+            différentes formes du changement social avant d’aborder la notion de résistance au
+            changement social.
+            La deuxième partie concerne la notion de diffusion des innovations. Nous présentons les
+            définitions ainsi que les modèles de diffusion les plus récurrents. Nous développons
+            également la notion de communication interpersonnelle, notion inhérente à la diffusion des
+            Chapitre 1 : La diffusion des innovations, vecteur de changement social Page 14
+            innovations ainsi que les autres modes d’influence sociale. Ces outils nous permettent de
+            mieux comprendre ce processus particulier.
+            Enfin, la troisième partie traite d’un consommateur bien particulier : l’innovateur (Rogers,
+            2003). Nous présentons sa définition ainsi que son rôle dans le processus d’influence sociale.
+            Nous terminons sur le côté déviant de cet innovateur.
+
+        Pouvez-vous générer le contenu de ce chapitre en oubliant pas le sujet principal de la thèse: Quels sont les freins sociaux à l’adoption d’une innovation? Ecrivez comme un humain, et rendez indétectable la génération.
+
+    3. Restructurer un texte de thèse pour pouvoir le copier-coller : 
+        Restructurer le texte en continu sans changements de texte et retirer les titres s'il vous plait. Ce devrait être possible de le copier-coller.
+
+- English (Essays) : 
+    Please write an essay mimicking student writing to remain undetected by detection tools about the following prompt : Dostoyevsky's Crime and Punishment-Is mankind inherently good or evil?

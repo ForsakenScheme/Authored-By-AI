@@ -31,7 +31,6 @@ from PyQt5.QtCore import Qt, pyqtSignal
 
 logger = setup_logging("local")
 
-
 def train_single(model: str, pipeline: UserConfigPipeline) -> float:
     """
     Train a single model based on the user's choice.
@@ -928,13 +927,15 @@ class TrainValidateTestWindow(QMainWindow):
         """
         try:
             self.pipeline = UserConfigPipeline()
+            logger.info("Pipeline initialized for training.")
         except Exception as e:
+            print(e)
             logger.error(f"Error while initializing pipeline: {e}")
             self.errorOccurred.emit(str(e))
             QMessageBox.critical(
                 self,
                 "Error",
-                'Error while initializing pipeline.\n\nProbably a bad setup of the database. You can check the logs in the "logs/local/" folder.',
+                'Error while initializing pipeline.\n\nProbably a bad setup of the database. You can check the logs in the "code/backend/logs/" folder.',
             )
 
     def check_config(self):
@@ -999,6 +1000,7 @@ class TrainValidateTestWindow(QMainWindow):
             QMessageBox.critical(self, "Error", "No model selected.")
             return
         self.check_config
+        self.setup_pipeline()
         dict_train_time = {}
 
         for model in selected_models:
@@ -1027,6 +1029,7 @@ class TrainValidateTestWindow(QMainWindow):
         dict_grid_search_lists = {}
 
         for model in selected_models:
+            self.setup_pipeline()
             self.pipeline.setClassifierName(model)
             self.pipeline.setParamGrid(model)
             self.pipeline.setCustomPipeline()
@@ -1059,6 +1062,7 @@ class TrainValidateTestWindow(QMainWindow):
             QMessageBox.critical(self, "Error", "No model selected.")
             return
         for model in selected_models:
+            self.setup_pipeline()
             self.pipeline.setClassifierName(model)
             self.pipeline.setCustomPipeline()
             learning_curve_widget = MatplotlibWindow()
@@ -1085,6 +1089,7 @@ class TrainValidateTestWindow(QMainWindow):
         dict_validation_dicts = {}
 
         for model in selected_models:
+            self.setup_pipeline()
             self.pipeline.setClassifierName(model)
             self.pipeline.loadCustomPipeline(model)
             validation_time, validation_dict = validate_single(model, self.pipeline)
@@ -1126,6 +1131,7 @@ class TrainValidateTestWindow(QMainWindow):
         dict_predictions = {}
         dict_predict_probas = {}
         for model in selected_models:
+            self.setup_pipeline()
             self.pipeline.setClassifierName(model)
             self.pipeline.loadCustomPipeline(model)
             (

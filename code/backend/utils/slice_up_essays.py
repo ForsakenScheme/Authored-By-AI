@@ -22,9 +22,9 @@ def slice_up_local_essays(data_language = "english"):
     and so forth for each paragraph contained in the first essay.
 
     """
-    db_path = os.path.join(os.getcwd(), "code", "backend", "data", data_language, str.join(data_language, ".sqlite"))
-    raw_path = os.path.join(db_path, "raw")
-    processed_path = os.path.join(db_path, "processed")
+    data_path = os.path.join(os.getcwd(), "code", "backend", "data", data_language)
+    raw_path = os.path.join(data_path, "raw")
+    processed_path = os.path.join(data_path, "processed")
     valid_directories = ["human", "ai"]
 
     for dir in valid_directories:

@@ -20,7 +20,6 @@ def detect_origin(texts: list, model: str = "Stacking Support Vector Machine", d
     """
     # Construct the file path
     file_path = Path(__file__).resolve().parent.parent.parent / f"backend/models/{data_language}/{model}.joblib"
-    print(file_path)
     try:
         # Load the model file
         model_pipeline = load(file_path)

@@ -73,8 +73,8 @@ class PredictionWindow(QDialog):
     def __init__(self, predictions):
         super().__init__()
         self.setWindowTitle("Predictions")
-        self.setWindowFlags(self.windowFlags() | Qt.WindowMinimizeButtonHint)
-        self.setBaseSize(600, 500)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowMinimizeButtonHint | Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint)
+        self.setBaseSize(900, 600)
 
         # Create scroll area
         scroll_area = QScrollArea()
@@ -292,11 +292,7 @@ class DetectOriginWindow(QMainWindow):
             return
         selected_model = self.classifier_combo.currentText()
         # Construct the file path
-        file_path = (
-            Path(__file__).resolve().parent.parent.parent
-            / "backend/models"
-            / (selected_model + ".joblib")
-        )
+        file_path = file_path = Path(__file__).resolve().parent.parent.parent / f"backend/models/{self.data_language}/{selected_model}.joblib"
         try:
             # Load the model file
             model_pipeline = load(file_path)

@@ -49,14 +49,27 @@ class SettingsWindow(QDialog):
         # Language selection
         self.language_label = QLabel("Select data language:")
         self.language_combo = QComboBox()
-        self.language_combo.addItems(["English", "French"])
+        
+        if self.localization_config:
+            current_language = self.localization_config.get("Data", "language").capitalize()
+        
+        else: 
+            # Default to English
+            current_language = "English"
 
-        # Set current language
-        if self.parent_window:
-            current_language = self.parent_window.data_language.capitalize()
-            index = self.language_combo.findText(current_language)
-            if index != -1:
-                self.language_combo.setCurrentIndex(index)
+        # Populate combo box with available languages, placing the current language first
+        available_languages = ["English", "French", "German"]
+
+        # Add current language first
+        self.language_combo.addItem(current_language)
+
+        # Add other languages, avoiding duplicates
+        for lang in available_languages:
+            if lang != current_language:
+                self.language_combo.addItem(lang)
+
+        # Set current language as selected
+        self.language_combo.setCurrentText(current_language)
 
         # Layout settings
         layout.addWidget(self.language_label)
@@ -181,7 +194,7 @@ class MainWindow(QMainWindow):
 
     def open_settings_window(self):
         """Open the settings window to select language."""
-        settings_window = SettingsWindow(localization_config=self.localization_config)
+        settings_window = SettingsWindow(parent=self, localization_config=self.localization_config)
         settings_window.exec_()
 
     def open_database_window(self):

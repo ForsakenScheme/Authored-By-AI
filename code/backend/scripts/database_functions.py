@@ -251,9 +251,10 @@ def find_text_id_by_text(text, data_language = "english"):
     return text_id
 
 
-def insert_text_with_label_into_table(text, label, table_name, db_path):
+def insert_text_with_label_into_table(text, label, table_name, db_path, data_language="english"):
     """
     Insert a text and its label into the specified table in the database if it's not already present.
+    This version avoids recursion by handling missing tables in a more direct manner.
 
     Parameters:
         text (str): The text to insert.
@@ -263,32 +264,50 @@ def insert_text_with_label_into_table(text, label, table_name, db_path):
     """
     try:
         conn = sqlite3.connect(db_path)
-    except sqlite3.OperationalError:
-        initialize_database()
-        conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-    try:
+        cursor = conn.cursor()
+
+        # Attempt to insert the text and label
         cursor.execute(
             f"""
             INSERT INTO {table_name} (text, label)
             VALUES (?, ?)
-        """,
+            """,
             (text, label),
         )
         conn.commit()
+
     except sqlite3.OperationalError:
         logger.warning(
-            f"Table {table_name} could not be found. Creating one and adding text next."
+            f"Table {table_name} could not be found. Attempting to create it."
         )
+        # Attempt to create the table
         if table_name == "raw":
-            create_raw_table()
+            create_raw_table(data_language)
         elif table_name == "processed":
-            create_processed_table()
-        insert_text_with_label_into_table(text, label, table_name, db_path)
+            create_processed_table(data_language)
+        
+        # Reconnect and try inserting again
+        try:
+            # Close the previous connection
+            conn.close()  
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+            cursor.execute(
+                f"""
+                INSERT INTO {table_name} (text, label)
+                VALUES (?, ?)
+                """,
+                (text, label),
+            )
+            conn.commit()
+
+        except sqlite3.IntegrityError:
+            logger.warning(f"Text already exists in the {table_name} table.")
     except sqlite3.IntegrityError:
         logger.warning(f"Text already exists in the {table_name} table.")
     finally:
-        conn.close()
+        if conn:
+            conn.close()
 
 def setup_database(data_language):
     """
@@ -298,13 +317,10 @@ def setup_database(data_language):
     data_path = os.path.join(os.getcwd(), "code", "backend", "data", data_language, "raw")
     X, y = get_X_y(data_path)
     sliced_X, sliced_y = slice_up_raw_db_essays(X, y)
-
     for text, label in zip(X, y):
-        insert_text_with_label_into_table(text, label, "raw", db_path)
+        insert_text_with_label_into_table(text, label, "raw", db_path, data_language)
     for sliced_text, sliced_label in zip(sliced_X, sliced_y):
-        insert_text_with_label_into_table(
-            sliced_text, sliced_label, "processed", db_path
-        )
+        insert_text_with_label_into_table(sliced_text, sliced_label, "processed", db_path, data_language)
     logger.info("Database setup completed.")
 
 class DeleteDatabaseDialog(QDialog):
@@ -1026,7 +1042,7 @@ class DatabaseWindow(QMainWindow):
                 "Warning",
                 "Table could not be found. Creating one from local files and adding text next.",
             )
-            create_raw_table()
+            create_raw_table(data_language)
             self.insert_text_into_raw_table(text, label="ai")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"An error occurred: {str(e)}")
@@ -1068,7 +1084,7 @@ class DatabaseWindow(QMainWindow):
                 logger.warning(
                     "Table could not be found. Creating one and adding text next."
                 )
-                create_processed_table()
+                create_processed_table(data_language)
                 self.insert_text_into_processed_table(paragraph, label="ai")
             except Exception as e:
                 logger.error(f"An error occurred: {str(e)}")

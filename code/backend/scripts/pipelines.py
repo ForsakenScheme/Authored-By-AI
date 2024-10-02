@@ -46,108 +46,99 @@ class UserConfigPipeline:
 
     Attributes:
         random_state (int): Random state for reproducibility.
-
         config (ConfigParser): Configuration parser object.
-
         nb_features (int or str): Number of features to select or "all".
-
         nb_folds (int): Number of folds for cross-validation.
-
         classifier_name (str): Name of the selected classifier.
-
         X_train (array-like): Training data features.
-
         X_val (array-like): Validation data features.
-
         X_test (array-like): Test data features.
-
         y_train (array-like): Training data labels.
-
         y_val (array-like): Validation data labels.
-
         y_test (array-like): Test data labels.
-
         feature_selector (SelectKBest): Feature selector object.
-
         custom_pipeline (Pipeline): Custom pipeline with feature selection.
-
         custom_pipeline_without_feature_selection (Pipeline): Custom pipeline without feature selection.
-
         param_grid (dict): Hyperparameter grid for grid search.
-
         logger (Logger): Logger object for logging.
 
     Methods:
-
         create_custom_pipeline(feature_selector=True): Creates a custom pipeline based on the user's configuration.
-
         train(): Trains the custom model then dumps the model to a file.
-
         validate(): Validates the custom model and calculates metrics on the validation set.
-
         grid_search(): Performs grid search to find the best hyperparameters for the custom model.
-
         test(): Tests the custom model on the test set.
-
-        predict_unkown_texts(text): Predicts the label for unknown texts.
+        predict_unknown_texts(text): Predicts the label for unknown texts.
     """
 
-    def __init__(self, logger=logger):
-        # get data_language from localization.ini file
+    def __init__(self):
         self.localization_config = configparser.ConfigParser(comment_prefixes="#", inline_comment_prefixes="#")
-        self.localization_config.read("code/backend/config/localization.ini")
-        # get all texts and labels from database.sqlite
-        self.data_language = config.get("Data", "language")
-        self.X, self.y = get_all_texts_and_labels_from_table("processed", self.data_language)
-        assert len(self.X) == len(self.y)
-        assert len(self.X) > 0
-        assert len(self.y) > 0
-        # assert value of len(X) is equal to the number of rows in the database
-        assert len(self.X) == get_nb_of_processed_texts()
-        # assert y contains both "ai" and "human" labels
-        if len(set(self.y)) != 2:
-            raise ValueError(
-                "Be sure to have both 'ai' and 'human' labels in the database."
-            )
-        assert set(self.y) == set(["ai", "human"])
-        # get user configuration from config.ini file
-        self.config = config
-        # retrieve random state for reproducibility
+        self.load_localization_config()
+        
+        self.data_language = self.localization_config.get("Data", "language")
+        self.X, self.y = self.get_all_texts_and_labels()
+        self.validate_data()
+        
+        self.config = self.load_user_config()
         self.random_state = self.config.getint("RandomState", "random_state")
-        # retrieve number of folds from config.ini file
         self.nb_folds = self.config.getint("CrossValidation", "nb_folds")
-        # assertions for the configuration file
-        assert (
-            int(self.config.get("RandomState", "random_state")) >= 0
-            or self.config.get("RandomState", "random_state") == None
-        ), "Random state must be a positive integer or None."
-        if self.config.getboolean("Preprocessing", "stemm"):
-            assert (
-                self.config.getboolean("Preprocessing", "lemmatize") == False
-            ), "Lemmatization must be disabled if stemming is enabled."
-        if self.config.getboolean("Preprocessing", "lemmatize"):
-            assert (
-                self.config.getboolean("Preprocessing", "stemm") == False
-            ), "Stemming must be disabled if lemmatization is enabled."
-        assert (
-            self.config.get("FeatureSelection", "nb_features").isdigit()
-            or self.config.get("FeatureSelection", "nb_features") == "all"
-        ), "Number of features must be a positive integer or 'all'."
-        assert (
-            int(self.config.get("FeatureSelection", "nb_features")) > 0
-            or self.config.get("FeatureSelection", "nb_features") == "all"
-        ), "Number of features must be a positive integer or 'all'."
-        assert self.nb_folds >= 2, "Number of folds must be at least 2."
-        # retrieve selected classifier name from config.ini file
-        self.classifier_name = None
-        self.X_train, self.X_val, self.X_test, self.y_train, self.y_val, self.y_test = (
-            split_data(self.X, self.y)
-        )
+        
+        self.validate_configuration()
+        
+        self.X_train, self.X_val, self.X_test, self.y_train, self.y_val, self.y_test = split_data(self.X, self.y)
         self.custom_pipeline = None
         self.param_grids = create_all_hyperparam_grids()
         self.param_grid = None
         self.logger = logger
         self.logger.info("UserConfigPipeline initialized.")
+
+    def load_localization_config(self):
+        """Loads localization configuration."""
+        try:
+            self.localization_config.read("code/backend/config/localization.ini")
+        except Exception as e:
+            self.logger.error("Failed to load localization configuration: %s", e)
+            raise
+
+    def get_all_texts_and_labels(self):
+        """Fetches texts and labels from the processed table."""
+        X, y = get_all_texts_and_labels_from_table("processed", self.data_language)
+        if len(X) != len(y) or not X or not y:
+            raise ValueError("Texts and labels must have the same non-zero length.")
+        return X, y
+
+    def validate_data(self):
+        """Validates the fetched data."""
+        if len(self.X) != get_nb_of_processed_texts(self.data_language):
+            raise ValueError("Number of texts does not match the expected count in the database.")
+        if set(self.y) != {"ai", "human"}:
+            raise ValueError("Labels must include both 'ai' and 'human'.")
+
+    def load_user_config(self):
+        """Loads user configuration from the config file."""
+        try:
+            return config  # Assuming `config` is defined elsewhere in your code.
+        except Exception as e:
+            self.logger.error("Failed to load user configuration: %s", e)
+            raise
+
+    def validate_configuration(self):
+        """Validates the user configuration."""
+        if self.random_state < 0:
+            raise ValueError("Random state must be a non-negative integer.")
+        if self.nb_folds < 2:
+            raise ValueError("Number of folds must be at least 2.")
+        nb_features = self.config.get("FeatureSelection", "nb_features")
+        if not nb_features.isdigit() and nb_features != "all":
+            raise ValueError("Number of features must be a positive integer or 'all'.")
+        if nb_features.isdigit() and int(nb_features) <= 0:
+            raise ValueError("Number of features must be a positive integer.")
+
+        if self.config.getboolean("Preprocessing", "stemm") and self.config.getboolean("Preprocessing", "lemmatize"):
+            raise ValueError("Stemming and lemmatization cannot be both enabled.")
+
+        if self.config.getboolean("Preprocessing", "lemmatize") and self.config.getboolean("Preprocessing", "stemm"):
+            raise ValueError("Lemmatization must be disabled if stemming is enabled.")
 
     def setClassifierName(self, classifier_name):
         """
@@ -227,6 +218,7 @@ class UserConfigPipeline:
             "vocabularySize": self.config.getboolean(
                 "FeatureExtractionAfterPreprocessing", "vocabularySize"
             ),
+            "data_language": self.data_language,
         }
         self.logger.info(f"pipeline config: {pipeline_config}")
         # create a pipeline with the specified config
@@ -726,6 +718,7 @@ def create_pipeline(
     textWordCounter=False,
     wordLength=False,
     vocabularySize=False,
+    data_language="english",
 ):
     """
     Create a pipeline for text data.
@@ -741,11 +734,13 @@ def create_pipeline(
         textWordCounter: Whether to include text word counter feature.
         wordLength: Whether to include word length feature.
         vocabularySize: Whether to include vocabulary size feature.
+        data_language: The language of the data.
 
     Returns:
         sklearn.pipeline.Pipeline: The model pipeline.
     """
     logger.info("Creating pipeline...")
+    logger.info("Selected pipeline language: %s", data_language)
     # retrive nb_features from config.ini file
     nb_features = config.get("FeatureSelection", "nb_features")
     if nb_features != "all" and (not nb_features.isdigit()):
@@ -761,17 +756,21 @@ def create_pipeline(
         sentenceLength,
         namedEntity,
         sentimentAnalysis,
+        data_language,
     )
+    logger.info(f"Feature extraction before preprocessing: {feature_extraction_before_preprocessing}")
     feature_extraction_after_preprocessing = FeatureExtractorAfterPreprocessing(
         config=configParser,
         textWordCounter=textWordCounter,
         wordLength=wordLength,
         vocabularySize=vocabularySize,
     )
+    logger.info(f"Feature extraction after preprocessing: {feature_extraction_after_preprocessing}")
     preprocessing = Preprocessing(
         configParser.getboolean("Preprocessing", "punctuation"),
         configParser.getboolean("Preprocessing", "stemm"),
         configParser.getboolean("Preprocessing", "lemmatize"),
+        data_language,
     )
     steps = [
         (
@@ -799,7 +798,7 @@ def create_pipeline(
         ),
         ("featureSelection", FeatureSelection(k=nb_features)),
     ]
-    logger.info(f"Pipeline config: {steps}")
+    logger.info(f"Full pipeline config steps: {steps}")
     return Pipeline(steps)
 
 

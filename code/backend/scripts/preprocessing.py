@@ -9,7 +9,7 @@ from nltk.corpus import wordnet
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize, sent_tokenize
 from nltk.probability import FreqDist
-from nltk.stem import PorterStemmer
+from nltk.stem import SnowballStemmer
 from nltk.stem import WordNetLemmatizer
 
 from spellchecker import SpellChecker
@@ -25,16 +25,12 @@ import string
 import copy
 import numpy as np
 import requests
+import spacy
 
 try:
     wordnet.ensure_loaded()
 except LookupError:
     nltk.download("wordnet")
-
-try:
-    stopwords.words("english")
-except LookupError:
-    nltk.download("stopwords")
 
 try:
     nltk.data.find("tokenizers/punkt")
@@ -83,16 +79,19 @@ class StopWords(BaseEstimator, TransformerMixin):
     Custom transformer to calculate the ratio of stopwords to useful words in a text.
 
     Attributes:
-        stopwords_english (list): List of English stopwords.
+        stopwords (list): List of English stopwords.
 
     Methods
         fit: Fit method for the StopWords transformer.
         transform: Transform method for the StopWords transformer.
     """
 
-    def __init__(self):
-        self.stopwords_english = stopwords.words("english")
-
+    def __init__(self, data_language = "english"):
+        try:
+            self.stopwords = stopwords.words(data_language)
+        except LookupError:
+            nltk.download("stopwords")
+            
     def fit(self, X, y=None):
         """
         Fit method for the StopWords transformer.
@@ -118,14 +117,13 @@ class StopWords(BaseEstimator, TransformerMixin):
         for text in X:
             words = text.split()
             useful_words_count = len(
-                [word for word in words if word.lower() not in self.stopwords_english]
+                [word for word in words if word.lower() not in self.stopwords]
             )
             stopword_ratio.append(len(words) / useful_words_count)
 
         stopword_ratio_features = np.array(stopword_ratio).reshape(-1, 1)
         logger.info(f"Shape of stopword features: {stopword_ratio_features.shape}")
         return stopword_ratio_features
-
 
 class ErrorDetector(BaseEstimator, TransformerMixin):
     """
@@ -140,8 +138,19 @@ class ErrorDetector(BaseEstimator, TransformerMixin):
         check_grammar: Check the grammar of a text using the LanguageTool API.
     """
 
-    def __init__(self):
-        self.spell_checker = SpellChecker()
+    # Mapping of user-friendly language names to their respective codes
+    LANGUAGE_MAPPING = {
+        "english": ("en", "en-US"),
+        "german": ("de", "de-DE"),
+        "french": ("fr", "fr-FR"),
+    }
+
+    def __init__(self, data_language="english"):
+        if data_language not in self.LANGUAGE_MAPPING:
+            raise ValueError(f"Language '{data_language}' not supported. Available languages: {', '.join(self.LANGUAGE_MAPPING.keys())}.")
+        
+        self.data_language, self.languagetool_code = self.LANGUAGE_MAPPING[data_language]
+        self.spell_checker = SpellChecker(self.data_language)
 
     def fit(self, X, y=None):
         """
@@ -170,6 +179,7 @@ class ErrorDetector(BaseEstimator, TransformerMixin):
         logger.info("Extracting error features..")
         spell_error_features = []
         grammar_error_features = []
+
         for text in X:
             # Spell checking
             words = text.split()
@@ -201,7 +211,7 @@ class ErrorDetector(BaseEstimator, TransformerMixin):
         url = "https://languagetool.org/api/v2/check"
 
         # Parameters
-        params = {"language": "en-US", "text": text}
+        params = {"language": self.languagetool_code, "text": text}
 
         # Retry parameters
         max_retries = 10
@@ -225,15 +235,10 @@ class ErrorDetector(BaseEstimator, TransformerMixin):
             except requests.exceptions.RequestException as e:
                 logger.error(f"Error: {e}")
                 if retry < max_retries - 1:
-                    logger.info(
-                        f"Retrying connection to API in {retry_delay} seconds..."
-                    )
+                    logger.info(f"Retrying connection to API in {retry_delay} seconds...")
                     sleep(retry_delay)
                 else:
-                    raise Exception(
-                        f"API couldn't be reached after {max_retries} retries."
-                    )
-
+                    raise Exception(f"API couldn't be reached after {max_retries} retries.")
 
 class PunctuationFrequency(BaseEstimator, TransformerMixin):
     """
@@ -376,13 +381,13 @@ class SentenceLength(BaseEstimator, TransformerMixin):
             mean_words_per_sentence = 0
         return mean_words_per_sentence
 
-
 class NamedEntity(BaseEstimator, TransformerMixin):
     """
     Extracts named entity features from text.
 
     Attributes:
         vectorizer (DictVectorizer): The DictVectorizer object.
+        nlp (Language): The spaCy language model.
 
     Methods:
         fit: Fit the NamedEntity.
@@ -390,8 +395,35 @@ class NamedEntity(BaseEstimator, TransformerMixin):
         extract_named_entities: Extract named entities from text.
     """
 
-    def __init__(self):
+    def __init__(self, data_language="english"):
         self.vectorizer = DictVectorizer()
+        self.data_language = data_language
+        self.nlp = self.load_spacy_model(data_language)
+
+    def load_spacy_model(self, language):
+        """
+        Load the appropriate spaCy model based on the language.
+
+        Parameters:
+            language (str): The language for the spaCy model.
+
+        Returns:
+            Language: The loaded spaCy language model.
+        """
+        language_map = {
+            "english": "en_core_web_sm",
+            "german": "de_core_news_sm",
+            "french": "fr_core_news_sm"
+        }
+
+        model_name = language_map.get(language)
+        if model_name is None:
+            raise ValueError("Language not supported in spaCy models.")
+        
+        try:
+            return spacy.load(model_name)
+        except OSError:
+            raise OSError(f"Model '{model_name}' not found. Please download it using 'python -m spacy download {model_name}'.")
 
     def fit(self, X, y=None):
         """
@@ -420,6 +452,7 @@ class NamedEntity(BaseEstimator, TransformerMixin):
         for text in X:
             ne_counts = self.extract_named_entities(text)
             named_entity_counts.append(ne_counts)
+        
         logger.info("Extracting named entity features..")
         return self.vectorizer.fit_transform(named_entity_counts)
 
@@ -434,19 +467,17 @@ class NamedEntity(BaseEstimator, TransformerMixin):
             dict: The named entity counts.
         """
         ne_counts = {"ORG": 0, "PERSON": 0, "LOCATION": 0}
-        tagged_text = nltk.pos_tag(nltk.word_tokenize(text))
-        named_entities = nltk.ne_chunk(tagged_text)
-        for entity in named_entities:
-            if isinstance(entity, nltk.Tree):
-                entity_type = entity.label()
-                if entity_type == "ORGANIZATION":
-                    ne_counts["ORG"] += 1
-                elif entity_type == "PERSON":
-                    ne_counts["PERSON"] += 1
-                elif entity_type == "GPE":
-                    ne_counts["LOCATION"] += 1
+        doc = self.nlp(text)
+        
+        for ent in doc.ents:
+            if ent.label_ == "ORG":
+                ne_counts["ORG"] += 1
+            elif ent.label_ == "PERSON":
+                ne_counts["PERSON"] += 1
+            elif ent.label_ == "GPE":
+                ne_counts["LOCATION"] += 1
+                
         return ne_counts
-
 
 class SentimentAnalysis(BaseEstimator, TransformerMixin):
     """
@@ -454,6 +485,7 @@ class SentimentAnalysis(BaseEstimator, TransformerMixin):
 
     Attributes:
         vectorizer (DictVectorizer): The DictVectorizer object.
+        nlp (Language): The spaCy language model.
 
     Methods:
         fit: Fit the SentimentAnalysis.
@@ -464,8 +496,35 @@ class SentimentAnalysis(BaseEstimator, TransformerMixin):
         is_sentiment_adverb: Check if a word is a sentiment adverb.
     """
 
-    def __init__(self):
+    def __init__(self, data_language="english"):
         self.vectorizer = DictVectorizer()
+        self.data_language = data_language
+        self.nlp = self.load_spacy_model(data_language)
+
+    def load_spacy_model(self, language):
+        """
+        Load the appropriate spaCy model based on the language.
+
+        Parameters:
+            language (str): The language for the spaCy model.
+
+        Returns:
+            Language: The loaded spaCy language model.
+        """
+        language_map = {
+            "english": "en_core_web_sm",
+            "german": "de_core_news_sm",
+            "french": "fr_core_news_sm"
+        }
+
+        model_name = language_map.get(language)
+        if model_name is None:
+            raise ValueError("Language not supported. Choose 'english', 'german', or 'french'.")
+        
+        try:
+            return spacy.load(model_name)
+        except OSError:
+            raise OSError(f"Model '{model_name}' not found. Please download it using 'python -m spacy download {model_name}'.")
 
     def fit(self, X, y=None):
         """
@@ -492,104 +551,127 @@ class SentimentAnalysis(BaseEstimator, TransformerMixin):
         """
         sentiment_features = []
         for text in X:
-            tagged_text = nltk.pos_tag(nltk.word_tokenize(text))
-            sentiment_adjectives = self.extract_sentiment_adjectives(tagged_text)
-            sentiment_adverbs = self.extract_sentiment_adverbs(tagged_text)
+            doc = self.nlp(text)
+            sentiment_adjectives = self.extract_sentiment_adjectives(doc)
+            sentiment_adverbs = self.extract_sentiment_adverbs(doc)
             features = {
                 "sentiment_adjectives_count": len(sentiment_adjectives),
                 "sentiment_adverbs_count": len(sentiment_adverbs),
             }
             sentiment_features.append(features)
+        
         logger.info("Extracting sentiment features..")
         return self.vectorizer.fit_transform(sentiment_features)
 
-    def extract_sentiment_adjectives(self, tagged_text):
+    def extract_sentiment_adjectives(self, doc):
         """
         Extract sentiment adjectives from text.
 
         Parameters:
-            tagged_text (list): The tagged text.
+            doc (spacy.tokens.Doc): The spaCy document.
 
         Returns:
             list: The sentiment adjectives.
         """
-        sentiment_adjectives = [
-            word for word, tag in tagged_text if self.is_sentiment_adjective(tag)
-        ]
+        sentiment_adjectives = [token.text for token in doc if self.is_sentiment_adjective(token)]
         return sentiment_adjectives
 
-    def extract_sentiment_adverbs(self, tagged_text):
+    def extract_sentiment_adverbs(self, doc):
         """
         Extract sentiment adverbs from text.
 
         Parameters:
-            tagged_text (list): The tagged text.
+            doc (spacy.tokens.Doc): The spaCy document.
 
         Returns:
             list: The sentiment adverbs.
         """
-        sentiment_adverbs = [
-            word for word, tag in tagged_text if self.is_sentiment_adverb(tag)
-        ]
+        sentiment_adverbs = [token.text for token in doc if self.is_sentiment_adverb(token)]
         return sentiment_adverbs
 
-    def is_sentiment_adjective(self, tag):
+    def is_sentiment_adjective(self, token):
         """
-        Check if a word is a sentiment adjective.
+        Check if a token is a sentiment adjective.
 
         Parameters:
-            tag (str): The word tag.
+            token (spacy.tokens.Token): The token to check.
 
         Returns:
-            bool: True if the word is a sentiment adjective, False otherwise.
+            bool: True if the token is a sentiment adjective, False otherwise.
         """
-        return str(tag).startswith("JJ")
+        return token.pos_ == "ADJ"
 
-    def is_sentiment_adverb(self, tag):
+    def is_sentiment_adverb(self, token):
         """
-        Check if a word is a sentiment adverb.
+        Check if a token is a sentiment adverb.
 
         Parameters:
-            tag (str): The word tag.
+            token (spacy.tokens.Token): The token to check.
 
         Returns:
-            bool: True if the word is a sentiment adverb, False otherwise.
+            bool: True if the token is a sentiment adverb, False otherwise.
         """
-        return str(tag).startswith("RB")
-
-
+        return token.pos_ == "ADV"
+    
 ######### Preprocessing #########
-
 
 class Preprocessing(BaseEstimator, TransformerMixin):
     """
     Preprocesses text data by removing punctuation and applying stemming or lemmatization.
 
     Attributes:
-        stemmer (PorterStemmer): The PorterStemmer object.
+        stemmer (SnowballStemmer): The SnowballStemmer object.
         lemmatizer (WordNetLemmatizer): The WordNetLemmatizer object.
 
     Parameters:
         punctuation (bool): Whether to remove punctuation from the text.
         stem (bool): Whether to apply stemming to the words.
         lemmatize (bool): Whether to apply lemmatization to the words.
-
-    Methods:
-        fit: Fit the TextPreprocessor.
-        transform: Transform the input text by applying the specified preprocessing steps.
-        preprocess_text: Preprocess a single text by removing punctuation and applying stemming or lemmatization.
+        data_language (str): Language for stemming and lemmatization.
     """
 
-    def __init__(self, punctuation=False, stem=False, lemmatize=False):
+    def __init__(self, punctuation=False, stem=False, lemmatize=False, data_language="english"):
+        self.data_language = data_language
         self.punctuation = punctuation
+        
         if stem and lemmatize:
-            raise ValueError(
-                "Both stem and lemmatize cannot be True at the same time to avoid redundancy."
-            )
+            raise ValueError("Both stem and lemmatize cannot be True at the same time to avoid redundancy.")
+        
         self.stem = stem
         self.lemmatize = lemmatize
-        self.stemmer = PorterStemmer()
-        self.lemmatizer = WordNetLemmatizer()
+        self.stemmer = SnowballStemmer(language=data_language)
+
+        # Initialize NLP model
+        self.nlp = self.load_spacy_model(data_language)
+
+        # Initialize lemmatizer for English
+        if data_language == "english":
+            self.lemmatizer = WordNetLemmatizer()
+        logger.info("Initialized Preprocessing object..")
+        
+    def load_spacy_model(self, data_language):
+        logger.info("Configuring spaCy model..")
+        """Loads the appropriate spaCy model based on the specified language."""
+        model_mapping = {
+            "german": "de_core_news_sm",
+            "french": "fr_core_news_sm",
+        }
+
+        # Check if the provided language is supported
+        if data_language not in model_mapping:
+            logger.error("Language not supported in spaCy models.")
+            raise ValueError("Language not supported in spaCy models.")
+
+        model_name = model_mapping[data_language]
+        
+        try:
+            logger.info(f"Loading spaCy model: {model_name}")
+            nlp = spacy.load(model_name)
+            logger.info(f"spaCy model for {data_language} loaded successfully.")
+            return nlp
+        except OSError:
+            logger.error(f"Please download the {data_language.capitalize()} model using 'python -m spacy download {model_name}'.")
+            raise OSError(f"Please download the {data_language.capitalize()} model using 'python -m spacy download {model_name}'.")
 
     def fit(self, X, y=None):
         """
@@ -615,16 +697,15 @@ class Preprocessing(BaseEstimator, TransformerMixin):
             array-like: The preprocessed text data.
         """
         logger.info("Preprocessing..")
-        if self.punctuation == False and self.stem == False and self.lemmatize == False:
+        if not (self.punctuation or self.stem or self.lemmatize):
             logger.info("No preprocessing applied..")
             logger.info(f"Returned list X of {len(X)} texts.")
             return X
 
-        else:
-            Xt = [self.preprocess_text(text) for text in X]
-            logger.info("Preprocessing applied..")
-            logger.info(f"Returned list Xt of {len(Xt)} preprocessed texts.")
-            return Xt
+        Xt = [self.preprocess_text(text) for text in X]
+        logger.info("Preprocessing applied..")
+        logger.info(f"Returned list Xt of {len(Xt)} preprocessed texts.")
+        return Xt
 
     def preprocess_text(self, text):
         """
@@ -636,32 +717,32 @@ class Preprocessing(BaseEstimator, TransformerMixin):
         Returns:
             str: The preprocessed text.
         """
-        pattern = ""
-        filtered_words = []
-        if self.punctuation or self.stem or self.lemmatize:
-            pattern = r"[.,'\"!@#$%^&*(){}?/;`~:\]\[-]"
+        pattern = r"[.,'\"!@#$%^&*(){}?/;`~:\]\[-]" if (self.punctuation or self.stem or self.lemmatize) else ""
         text_without_punctuation = re.sub(pattern, "", text)
         stops = set(stopwords.words("english"))
         words = text_without_punctuation.split()
+        filtered_words = []
+
         if self.stem:
             for word in words:
                 if word.lower() not in stops:
-                    word = self.stemmer.stem(word)
-                    filtered_words.append(word)
+                    filtered_words.append(self.stemmer.stem(word))
         elif self.lemmatize:
             for word in words:
-                if word.lower() not in stops:
-                    word = self.lemmatizer.lemmatize(word)
-                    filtered_words.append(word)
+                if self.data_language != "english":
+                    token = self.nlp(word)[0]
+                    filtered_words.append(token.lemma_)
+                else:
+                    if word.lower() not in stops:
+                        filtered_words.append(self.lemmatizer.lemmatize(word))
         else:
             for word in words:
                 if word.lower() not in stops:
                     filtered_words.append(word)
+
         return " ".join(filtered_words)
 
-
 ######### After preprocessing #########
-
 
 class WordLength(BaseEstimator, TransformerMixin):
     """
@@ -856,8 +937,8 @@ class FeatureExtractorBeforePreprocessing(BaseEstimator, TransformerMixin):
         sentenceLength=False,
         namedEntity=False,
         sentimentAnalysis=False,
+        data_language = "english"
     ):
-
         self.stopWords = stopWords
         self.errorDetector = errorDetector
         self.punctuationFrequency = punctuationFrequency
@@ -866,23 +947,33 @@ class FeatureExtractorBeforePreprocessing(BaseEstimator, TransformerMixin):
         self.sentimentAnalysis = sentimentAnalysis
         self.feature_union = []
         self.combined_transformers = None
+        self.data_language = data_language
+        logger.info("Initialized FeatureExtractorBeforePreprocessing object..")
 
         # Add transformers based on selected options
         if self.stopWords:
-            self.feature_union.append(("stopWords", StopWords()))
+            logger.info("Adding StopWords transformer..")
+            self.feature_union.append(("stopWords", StopWords(self.data_language)))
         if self.errorDetector:
-            self.feature_union.append(("errorDetector", ErrorDetector()))
+            logger.info("Adding ErrorDetector transformer..")
+            self.feature_union.append(("errorDetector", ErrorDetector(self.data_language)))
         if self.punctuationFrequency:
+            logger.info("Adding PunctuationFrequency transformer..")
             self.feature_union.append(("punctuationFrequency", PunctuationFrequency()))
         if self.sentenceLength:
+            logger.info("Adding SentenceLength transformer..")
             self.feature_union.append(("sentenceLength", SentenceLength()))
         if self.namedEntity:
-            self.feature_union.append(("namedEntity", NamedEntity()))
+            logger.info("Adding NamedEntity transformer..")
+            self.feature_union.append(("namedEntity", NamedEntity(self.data_language)))
         if self.sentimentAnalysis:
-            self.feature_union.append(("sentimentAnalysis", SentimentAnalysis()))
+            logger.info("Adding SentimentAnalysis transformer..")
+            self.feature_union.append(("sentimentAnalysis", SentimentAnalysis(self.data_language)))
         if self.feature_union:
+            logger.info("Creating combined transformers..")
             self.combined_transformers = FeatureUnion(self.feature_union)
-
+        logger.info("Added all FeatureExtractorBeforePreprocessing transformers based on selected options..")
+        
     def fit(self, X, y=None):
         """
         Fit the FeatureExtractorBeforePreprocessing.
@@ -960,6 +1051,7 @@ class FeatureExtractorAfterPreprocessing(BaseEstimator, TransformerMixin):
         self.wordLength = wordLength
         self.vocabularySize = vocabularySize
         self.feature_union = []
+        logger.info("Initialized FeatureExtractorAfterPreprocessing object..")
 
         if self.textWordCounter:
             self.feature_union.append(
@@ -973,12 +1065,15 @@ class FeatureExtractorAfterPreprocessing(BaseEstimator, TransformerMixin):
             )
 
         if self.wordLength:
+            logger.info("Adding WordLength transformer..")
             self.feature_union.append(("wordLength", WordLength()))
 
         if self.vocabularySize:
+            logger.info("Adding VocabularySize transformer..")
             self.feature_union.append(("vocabularySize", VocabularySize()))
 
         self.combined_transformers = FeatureUnion(self.feature_union)
+        logger.info("Added FeatureExtractorAfterPreprocessing transformers based on selected options..")
 
     def fit(self, X, y=None):
         """
@@ -1020,9 +1115,7 @@ class FeatureExtractorAfterPreprocessing(BaseEstimator, TransformerMixin):
             )
             return X_array
 
-
 ######### Feature Selection #########
-
 
 class FeatureSelection(SelectKBest):
     """
