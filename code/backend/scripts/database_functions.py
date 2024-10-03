@@ -338,6 +338,7 @@ class DeleteDatabaseDialog(QDialog):
 
     def __init__(self, parent=None, data_language = "english"):
         super().__init__(parent)
+        self.data_language = data_language
         self.setWindowTitle("Delete Database")
         self.db_path = create_path_to_db(data_language = "english")
 
@@ -584,7 +585,7 @@ class DeleteTextDialog(QDialog):
         self.table_widget.setRowCount(0)
 
         # Get data from the selected table
-        data = self.get_all_ids_and_texts_from_table(table)
+        data = self.get_all_ids_and_texts_from_table(table, data_language = self.data_language)
 
         if data:
             self.table_widget.setRowCount(len(data))

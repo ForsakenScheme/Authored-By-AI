@@ -37,7 +37,7 @@ Prompt examples per language :
         Pouvez-vous générer le contenu de ce chapitre en oubliant pas le sujet principal de la thèse: Quels sont les freins sociaux à l’adoption d’une innovation? Ecrivez comme un humain, et rendez indétectable la génération.
 
     3. Restructurer un texte de thèse pour pouvoir le copier-coller : 
-        Restructurer le texte en continu sans changements de texte et retirer les titres s'il vous plait. Ce devrait être possible de le copier-coller.
+        Restructurez le texte en continu sans changements de texte et retirer les titres s'il vous plait. Ce devrait être possible de le copier-coller.
 
 - English (Essays) : 
     Please write an essay mimicking student writing to remain undetected by detection tools about the following prompt : Dostoyevsky's Crime and Punishment-Is mankind inherently good or evil?
