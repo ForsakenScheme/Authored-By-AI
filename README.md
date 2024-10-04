@@ -1,4 +1,4 @@
-# 2324_INFOB318_ABAI2
+# ABAI : Authored By AI
 
 ## Authored by AI : The authorship attribution tool
 
@@ -58,4 +58,6 @@ The menus aren't flawless but they do the job for now.
 6. Check the results human/ai. 
    
 ### Disclaimer
+The project is a WIP and started as a small University project. I'm working on it by myself during my freetime to gather experience. Some parts may not work as expected, please contact me and be patient. You can also contribute if you wish to. I'm open to every suggestion and help ! Don't hesitate to contact me for any reason. Thanks for your time reading this ! 
+
 Remember **not to use ABAI as a primary decision-making tool**, but rather as a complementary method of determining the source of a writing. 
