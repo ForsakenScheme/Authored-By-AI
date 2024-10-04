@@ -91,6 +91,7 @@ class StopWords(BaseEstimator, TransformerMixin):
             self.stopwords = stopwords.words(data_language)
         except LookupError:
             nltk.download("stopwords")
+            self.stopwords = stopwords.words(data_language)
             
     def fit(self, X, y=None):
         """
@@ -641,12 +642,12 @@ class Preprocessing(BaseEstimator, TransformerMixin):
         self.lemmatize = lemmatize
         self.stemmer = SnowballStemmer(language=data_language)
 
-        # Initialize NLP model
-        self.nlp = self.load_spacy_model(data_language)
-
         # Initialize lemmatizer for English
         if data_language == "english":
             self.lemmatizer = WordNetLemmatizer()
+        else:
+            # Initialize NLP model
+            self.nlp = self.load_spacy_model(data_language)
         logger.info("Initialized Preprocessing object..")
         
     def load_spacy_model(self, data_language):

@@ -446,19 +446,6 @@ class GridSearchwindow(QDialog):
         scroll_area.setWidget(content_widget)
         self.layout().addWidget(scroll_area)
 
-        """def print_achievable(best_params_for_score):
-    # example (("precision", 0.88)), {"classification__C": 1, "classification__kernel": "linear"})
-    for metric in best_params_for_score:
-        metric_name = metric[0][0]
-        metric_score = metric[0][1]
-        best_params_for_metric = metric[1]
-        print(f"Best achievable score for {metric_name}: {metric_score * 100:.2f}%")
-        print(f"Recommended parameter configuration to achieve this:\n")
-        for parameter, value in best_params_for_metric.items():
-            print(f"\t{parameter}: {value}")
-        print()"""
-
-
 class ValidationResultWindow(QDialog):
     """
     A QDialog window to display the validation results for selected models.
@@ -554,6 +541,7 @@ class TestResultWindow(QDialog):
         dict_test_dicts,
         dict_predictions,
         dict_predict_probas,
+        data_language,
     ):
         super().__init__()
         self.setWindowTitle("Test results")
@@ -600,21 +588,21 @@ class TestResultWindow(QDialog):
             i = 0
             for text, prediction, predict_proba in zip(
                 pipeline.X_test, predictions, predict_probas
-            ):
+            ):  
                 if prediction == "ai":
                     ai_confidence = predict_proba[0] * 100
                     if pipeline.y_test[i] == "ai":
-                        content += f"\tText {i+1} (ID {find_text_id_by_text(text)}): predicted {prediction}({ai_confidence:.2f} %) - actual {pipeline.y_test[i]}. <font color='green'>Correct !</font>\n"
+                        content += f"\tText {i+1} (ID {find_text_id_by_text(text, data_language=data_language)}): predicted {prediction}({ai_confidence:.2f} %) - actual {pipeline.y_test[i]}. <font color='green'>Correct !</font>\n"
                     else:
-                        content += f"\tText {i+1} (ID {find_text_id_by_text(text)}): predicted {prediction}({ai_confidence:.2f} %) - actual {pipeline.y_test[i]}. <font color='red'>False !</font>\n"
+                        content += f"\tText {i+1} (ID {find_text_id_by_text(text, data_language=data_language)}): predicted {prediction}({ai_confidence:.2f} %) - actual {pipeline.y_test[i]}. <font color='red'>False !</font>\n"
                 elif prediction == "human":
                     human_confidence = predict_proba[1] * 100
                     if pipeline.y_test[i] == "human":
-                        content += f"\tText {i+1} (ID {find_text_id_by_text(text)}): predicted {prediction}({human_confidence:.2f} %) - actual {pipeline.y_test[i]}. <font color='green'>Correct !</font>\n"
+                        content += f"\tText {i+1} (ID {find_text_id_by_text(text, data_language=data_language)}): predicted {prediction}({human_confidence:.2f} %) - actual {pipeline.y_test[i]}. <font color='green'>Correct !</font>\n"
                     else:
-                        content += f"\tText {i+1} (ID {find_text_id_by_text(text)}): predicted {prediction}({human_confidence:.2f} %) - actual {pipeline.y_test[i]}. <font color='red'>False !</font>\n"
+                        content += f"\tText {i+1} (ID {find_text_id_by_text(text, data_language=data_language)}): predicted {prediction}({human_confidence:.2f} %) - actual {pipeline.y_test[i]}. <font color='red'>False !</font>\n"
                 else:
-                    content += f"\tText {i+1} (ID {find_text_id_by_text(text)}): skipped (too short).\n"
+                    content += f"\tText {i+1} (ID {find_text_id_by_text(text, data_language=data_language)}): skipped (too short).\n"
                 i += 1
             content += "</pre>\n\n==================================================================================\n\n"
 
@@ -785,7 +773,7 @@ class TrainValidateTestWindow(QMainWindow):
     def __init__(self, localization_config: configparser.ConfigParser):
         super().__init__()
         self.setWindowTitle("Train, validate and test")
-        self.setGeometry(600, 500, 1200, 800)
+        self.setGeometry(200, 200, 1200, 800)
         self.setWindowFlags(self.windowFlags() | Qt.WindowMinimizeButtonHint | Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint)
         self.childWindows = []
         self.childPlots = []
@@ -798,8 +786,9 @@ class TrainValidateTestWindow(QMainWindow):
         self.test_result_window = None
         self.train_validate_test_result_window = None
 
-        # Initialize pipeline to None
+        # Initialize pipeline
         self.pipeline = None
+        self.setup_pipeline()
 
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -929,7 +918,6 @@ class TrainValidateTestWindow(QMainWindow):
             self.pipeline = UserConfigPipeline()
             logger.info("Pipeline initialized for training.")
         except Exception as e:
-            print(e)
             logger.error(f"Error while initializing pipeline: {e}")
             self.errorOccurred.emit(str(e))
             QMessageBox.critical(
@@ -1000,7 +988,6 @@ class TrainValidateTestWindow(QMainWindow):
             QMessageBox.critical(self, "Error", "No model selected.")
             return
         self.check_config
-        self.setup_pipeline()
         dict_train_time = {}
 
         for model in selected_models:
@@ -1027,9 +1014,8 @@ class TrainValidateTestWindow(QMainWindow):
             return
         dict_grid_search_time = {}
         dict_grid_search_lists = {}
-
+        
         for model in selected_models:
-            self.setup_pipeline()
             self.pipeline.setClassifierName(model)
             self.pipeline.setParamGrid(model)
             self.pipeline.setCustomPipeline()
@@ -1062,7 +1048,6 @@ class TrainValidateTestWindow(QMainWindow):
             QMessageBox.critical(self, "Error", "No model selected.")
             return
         for model in selected_models:
-            self.setup_pipeline()
             self.pipeline.setClassifierName(model)
             self.pipeline.setCustomPipeline()
             learning_curve_widget = MatplotlibWindow()
@@ -1089,7 +1074,6 @@ class TrainValidateTestWindow(QMainWindow):
         dict_validation_dicts = {}
 
         for model in selected_models:
-            self.setup_pipeline()
             self.pipeline.setClassifierName(model)
             self.pipeline.loadCustomPipeline(model)
             validation_time, validation_dict = validate_single(model, self.pipeline)
@@ -1131,7 +1115,6 @@ class TrainValidateTestWindow(QMainWindow):
         dict_predictions = {}
         dict_predict_probas = {}
         for model in selected_models:
-            self.setup_pipeline()
             self.pipeline.setClassifierName(model)
             self.pipeline.loadCustomPipeline(model)
             (
@@ -1160,8 +1143,7 @@ class TrainValidateTestWindow(QMainWindow):
             dict_test_dicts[model] = test_dict
             dict_predictions[model] = predictions
             dict_predict_probas[model] = predict_probas
-
-        # Display results for each models in a new window
+        # Display results for each model in a new window
         test_result_window = TestResultWindow(
             dict_pipelines,
             dict_test_times,
@@ -1175,6 +1157,7 @@ class TrainValidateTestWindow(QMainWindow):
             dict_test_dicts,
             dict_predictions,
             dict_predict_probas,
+            self.data_language,
         )
         self.childWindows.append(test_result_window)
         test_result_window.show()

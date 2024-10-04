@@ -1018,7 +1018,4 @@ def calculate_metrics(y_value, y_pred):
     recall = recall_score(y_value, y_pred, average="macro")
     f1 = f1_score(y_value, y_pred, average="macro")
     logger.info("Successfully extracted metrics.")
-    logger.info(
-        f"\nAccuracy: {accuracy}\nPrecision: {precision}\nRecall: {recall}\nF1: {f1}\nConfusion matrix:\n\t{cm}"
-    )
     return accuracy, precision, recall, f1, cm

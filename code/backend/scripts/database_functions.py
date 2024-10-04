@@ -248,6 +248,9 @@ def find_text_id_by_text(text, data_language = "english"):
 
     conn.close()
 
+    if text_id is None:
+        logger.error("Text not found in the database. Probably an error with the language setups.")
+        raise ValueError("Text not found in the database.")
     return text_id
 
 
