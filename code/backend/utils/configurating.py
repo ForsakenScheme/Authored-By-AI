@@ -1,6 +1,6 @@
 import configparser
 import sys
-from backend.utils.log import setup_logging
+from backend.utils.log import get_logger
 from PyQt5.QtWidgets import (
     QMainWindow,
     QWidget,
@@ -16,13 +16,10 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt
 
-logger = setup_logging("local")
-
 config = configparser.ConfigParser(comment_prefixes="#", inline_comment_prefixes="#")
 config.read("code/backend/config/config.ini")
 
-max_size_int = sys.maxsize
-
+logger = get_logger(__name__)
 
 class ConfigurationWindow(QMainWindow):
     """
@@ -41,6 +38,7 @@ class ConfigurationWindow(QMainWindow):
     def __init__(self, localization_config):
 
         super().__init__()
+        self.max_size = sys.maxsize
         self.setWindowTitle("Configuration Menu")
         self.setBaseSize(850, 600)
         self.central_widget = QWidget()
@@ -238,7 +236,7 @@ class ConfigurationWindow(QMainWindow):
                 'Number of features must be a non-negative integer or "all".',
             )
             return
-        if int(nb_features) > max_size_int:
+        if int(nb_features) > self.max_size:
             QMessageBox.warning(
                 self,
                 f"Invalid input",
@@ -258,7 +256,7 @@ class ConfigurationWindow(QMainWindow):
         if not int(random_state) >= 0:
             QMessageBox.warning(self, "Invalid input", "Random state must be >= 0.")
             return
-        if int(random_state) > max_size_int:
+        if int(random_state) > self.max_size:
             QMessageBox.warning(
                 self,
                 f"Invalid input",
@@ -276,7 +274,7 @@ class ConfigurationWindow(QMainWindow):
         if not int(nb_folds) >= 2:
             QMessageBox.warning(self, "Invalid input", "Number of folds must be >= 2.")
             return
-        if int(nb_folds) > max_size_int:
+        if int(nb_folds) > self.max_size:
             QMessageBox.warning(
                 self,
                 f"Invalid input",

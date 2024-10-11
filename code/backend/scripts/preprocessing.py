@@ -15,14 +15,13 @@ from nltk.stem import WordNetLemmatizer
 from spellchecker import SpellChecker
 
 from backend.utils.configurating import config
-from backend.utils.log import setup_logging
+from backend.utils.log import get_logger
 
 from time import sleep
 
 import re
 import nltk
 import string
-import copy
 import numpy as np
 import requests
 import spacy
@@ -47,9 +46,8 @@ try:
 except LookupError:
     nltk.download("maxent_ne_chunker")
     nltk.download("words")
-
-logger = setup_logging("local")
-
+    
+logger = get_logger()
 
 def split_data(X, y):
     """
@@ -70,29 +68,35 @@ def split_data(X, y):
     )
     return X_train, X_val, X_test, y_train, y_val, y_test
 
-
 ######### Before preprocessing #########
-
 
 class StopWords(BaseEstimator, TransformerMixin):
     """
     Custom transformer to calculate the ratio of stopwords to useful words in a text.
 
+    Parameters:
+        data_language (str): Language for stopwords (default is "english").
+    
     Attributes:
-        stopwords (list): List of English stopwords.
-
-    Methods
-        fit: Fit method for the StopWords transformer.
-        transform: Transform method for the StopWords transformer.
+        data_language (str): Language used for stopwords.
+        stopwords (list): List of stopwords, loaded when required.
     """
 
-    def __init__(self, data_language = "english"):
-        try:
-            self.stopwords = stopwords.words(data_language)
-        except LookupError:
-            nltk.download("stopwords")
-            self.stopwords = stopwords.words(data_language)
-            
+    def __init__(self, data_language="english"):
+        self.data_language = data_language
+        self.stopwords = None  
+
+    def _load_stopwords(self):
+        """
+        Lazy load stopwords to make the transformer pickleable.
+        """
+        if self.stopwords is None:
+            try:
+                self.stopwords = stopwords.words(self.data_language)
+            except LookupError:
+                nltk.download("stopwords")
+                self.stopwords = stopwords.words(self.data_language)
+
     def fit(self, X, y=None):
         """
         Fit method for the StopWords transformer.
@@ -114,13 +118,17 @@ class StopWords(BaseEstimator, TransformerMixin):
         - stopword_ratio (numpy.ndarray): Array containing the ratio of stopwords to useful words for each text.
         """
         logger.info("Extracting stopword features..")
+        self._load_stopwords()  
+
         stopword_ratio = []
         for text in X:
             words = text.split()
             useful_words_count = len(
                 [word for word in words if word.lower() not in self.stopwords]
             )
-            stopword_ratio.append(len(words) / useful_words_count)
+            # Avoid division by zero in case of empty texts
+            ratio = len(words) / useful_words_count if useful_words_count > 0 else 0
+            stopword_ratio.append(ratio)
 
         stopword_ratio_features = np.array(stopword_ratio).reshape(-1, 1)
         logger.info(f"Shape of stopword features: {stopword_ratio_features.shape}")
@@ -130,16 +138,14 @@ class ErrorDetector(BaseEstimator, TransformerMixin):
     """
     Detects errors in text using pyspellchecker and LanguageTool API.
 
-    Attributes:
-        spell_checker (SpellChecker): The SpellChecker object.
+    Parameters:
+        data_language (str): Language for error detection (default is "english").
 
-    Methods:
-        fit: Fit the ErrorDetector.
-        transform: Transform the input text by extracting error features.
-        check_grammar: Check the grammar of a text using the LanguageTool API.
+    Attributes:
+        data_language (str): The ISO code for the language.
+        languagetool_code (str): Language code used for the LanguageTool API.
     """
 
-    # Mapping of user-friendly language names to their respective codes
     LANGUAGE_MAPPING = {
         "english": ("en", "en-US"),
         "german": ("de", "de-DE"),
@@ -148,10 +154,19 @@ class ErrorDetector(BaseEstimator, TransformerMixin):
 
     def __init__(self, data_language="english"):
         if data_language not in self.LANGUAGE_MAPPING:
-            raise ValueError(f"Language '{data_language}' not supported. Available languages: {', '.join(self.LANGUAGE_MAPPING.keys())}.")
+            raise ValueError(
+                f"Language '{data_language}' not supported. Available languages: {', '.join(self.LANGUAGE_MAPPING.keys())}."
+            )
         
         self.data_language, self.languagetool_code = self.LANGUAGE_MAPPING[data_language]
-        self.spell_checker = SpellChecker(self.data_language)
+        self._spell_checker = None  
+
+    def _load_spell_checker(self):
+        """
+        Lazy load the spell checker to make the transformer pickleable.
+        """
+        if self._spell_checker is None:
+            self._spell_checker = SpellChecker(self.data_language)
 
     def fit(self, X, y=None):
         """
@@ -178,13 +193,15 @@ class ErrorDetector(BaseEstimator, TransformerMixin):
             numpy.ndarray: The error features.
         """
         logger.info("Extracting error features..")
+        self._load_spell_checker()  
+
         spell_error_features = []
         grammar_error_features = []
 
         for text in X:
             # Spell checking
             words = text.split()
-            misspelled = self.spell_checker.unknown(words)
+            misspelled = self._spell_checker.unknown(words)
             spell_error_count = len(misspelled)
             spell_error_features.append([spell_error_count])
 
@@ -246,7 +263,7 @@ class PunctuationFrequency(BaseEstimator, TransformerMixin):
     Extracts punctuation frequency features from text.
 
     Attributes:
-        vectorizer (DictVectorizer): The DictVectorizer object.
+        vectorizer (DictVectorizer): The DictVectorizer object (lazy-loaded).
 
     Methods:
         fit: Fit the PunctuationFrequency.
@@ -255,7 +272,14 @@ class PunctuationFrequency(BaseEstimator, TransformerMixin):
     """
 
     def __init__(self):
-        self.vectorizer = DictVectorizer()
+        self._vectorizer = None
+
+    def _load_vectorizer(self):
+        """
+        Lazy load the vectorizer to make the transformer pickleable.
+        """
+        if self._vectorizer is None:
+            self._vectorizer = DictVectorizer()
 
     def fit(self, X, y=None):
         """
@@ -268,7 +292,8 @@ class PunctuationFrequency(BaseEstimator, TransformerMixin):
         Returns:
             self (PunctuationFrequency): The fitted PunctuationFrequency object.
         """
-        self.vectorizer.fit([self.analyze_punctuation(text) for text in X])
+        self._load_vectorizer()
+        self._vectorizer.fit([self.analyze_punctuation(text) for text in X])
         return self
 
     def transform(self, X):
@@ -282,8 +307,9 @@ class PunctuationFrequency(BaseEstimator, TransformerMixin):
             scipy.sparse.csr_matrix: The punctuation frequency features.
         """
         logger.info("Extracting punctuation features..")
+        self._load_vectorizer()
         punctuation_frequency = [self.analyze_punctuation(text) for text in X]
-        features = self.vectorizer.transform(punctuation_frequency)
+        features = self._vectorizer.transform(punctuation_frequency)
         logger.info(f"Shape of punctuation features: {features.shape}")
         return features
 
@@ -314,7 +340,6 @@ class PunctuationFrequency(BaseEstimator, TransformerMixin):
 
         return punctuation_frequency
 
-
 class SentenceLength(BaseEstimator, TransformerMixin):
     """
     Extracts sentence length features from text.
@@ -339,6 +364,7 @@ class SentenceLength(BaseEstimator, TransformerMixin):
         Returns:
             self (SentenceLength): The fitted SentenceLength object.
         """
+        # No fitting logic needed, as this transformer is stateless.
         return self
 
     def transform(self, X):
@@ -369,13 +395,13 @@ class SentenceLength(BaseEstimator, TransformerMixin):
         Returns:
             float: The mean sentence length.
         """
-        # tokenize the text into sentences
+        # Tokenize the text into sentences
         sentences = sent_tokenize(text)
 
-        # calculate the number of words in each sentence
+        # Calculate the number of words in each sentence
         words_per_sentence = [len(word_tokenize(sentence)) for sentence in sentences]
 
-        # calculate the mean number of words per sentence
+        # Calculate the mean number of words per sentence
         if words_per_sentence:
             mean_words_per_sentence = sum(words_per_sentence) / len(words_per_sentence)
         else:
@@ -388,43 +414,43 @@ class NamedEntity(BaseEstimator, TransformerMixin):
 
     Attributes:
         vectorizer (DictVectorizer): The DictVectorizer object.
-        nlp (Language): The spaCy language model.
+        nlp (Language): The spaCy language model, loaded lazily.
 
     Methods:
         fit: Fit the NamedEntity.
         transform: Transform the input text by extracting named entity features.
         extract_named_entities: Extract named entities from text.
+        _load_spacy_model: Load the spaCy model only when needed.
     """
 
     def __init__(self, data_language="english"):
-        self.vectorizer = DictVectorizer()
+        self.vectorizer = None
         self.data_language = data_language
-        self.nlp = self.load_spacy_model(data_language)
+        self.nlp = None 
 
-    def load_spacy_model(self, language):
+    def _load_spacy_model(self):
         """
-        Load the appropriate spaCy model based on the language.
-
-        Parameters:
-            language (str): The language for the spaCy model.
+        Load the appropriate spaCy model based on the language if not already loaded.
 
         Returns:
             Language: The loaded spaCy language model.
         """
-        language_map = {
-            "english": "en_core_web_sm",
-            "german": "de_core_news_sm",
-            "french": "fr_core_news_sm"
-        }
+        if self.nlp is None:
+            language_map = {
+                "english": "en_core_web_sm",
+                "german": "de_core_news_sm",
+                "french": "fr_core_news_sm"
+            }
+            model_name = language_map.get(self.data_language)
+            if model_name is None:
+                raise ValueError("Language not supported in spaCy models.")
+            
+            try:
+                self.nlp = spacy.load(model_name)
+            except OSError:
+                raise OSError(f"Model '{model_name}' not found. Please download it using 'python -m spacy download {model_name}'.")
 
-        model_name = language_map.get(language)
-        if model_name is None:
-            raise ValueError("Language not supported in spaCy models.")
-        
-        try:
-            return spacy.load(model_name)
-        except OSError:
-            raise OSError(f"Model '{model_name}' not found. Please download it using 'python -m spacy download {model_name}'.")
+        return self.nlp
 
     def fit(self, X, y=None):
         """
@@ -437,6 +463,9 @@ class NamedEntity(BaseEstimator, TransformerMixin):
         Returns:
             self (NamedEntity): The fitted NamedEntity object.
         """
+        named_entity_counts = [self.extract_named_entities(text) for text in X]
+        self.vectorizer = DictVectorizer()
+        self.vectorizer.fit(named_entity_counts)
         return self
 
     def transform(self, X):
@@ -449,13 +478,13 @@ class NamedEntity(BaseEstimator, TransformerMixin):
         Returns:
             scipy.sparse.csr_matrix: The named entity features.
         """
-        named_entity_counts = []
-        for text in X:
-            ne_counts = self.extract_named_entities(text)
-            named_entity_counts.append(ne_counts)
+        named_entity_counts = [self.extract_named_entities(text) for text in X]
         
+        if self.vectorizer is None:
+            raise ValueError("The vectorizer has not been fitted. Please call 'fit' before 'transform'.")
+
         logger.info("Extracting named entity features..")
-        return self.vectorizer.fit_transform(named_entity_counts)
+        return self.vectorizer.transform(named_entity_counts)
 
     def extract_named_entities(self, text):
         """
@@ -468,7 +497,8 @@ class NamedEntity(BaseEstimator, TransformerMixin):
             dict: The named entity counts.
         """
         ne_counts = {"ORG": 0, "PERSON": 0, "LOCATION": 0}
-        doc = self.nlp(text)
+        nlp = self._load_spacy_model()
+        doc = nlp(text)
         
         for ent in doc.ents:
             if ent.label_ == "ORG":
@@ -485,8 +515,8 @@ class SentimentAnalysis(BaseEstimator, TransformerMixin):
     Extracts sentiment features from text.
 
     Attributes:
-        vectorizer (DictVectorizer): The DictVectorizer object.
-        nlp (Language): The spaCy language model.
+        vectorizer (DictVectorizer): The DictVectorizer object, initialized lazily.
+        nlp (Language): The spaCy language model, loaded lazily.
 
     Methods:
         fit: Fit the SentimentAnalysis.
@@ -498,34 +528,34 @@ class SentimentAnalysis(BaseEstimator, TransformerMixin):
     """
 
     def __init__(self, data_language="english"):
-        self.vectorizer = DictVectorizer()
+        self.vectorizer = None 
         self.data_language = data_language
-        self.nlp = self.load_spacy_model(data_language)
+        self.nlp = None 
 
-    def load_spacy_model(self, language):
+    def _load_spacy_model(self):
         """
-        Load the appropriate spaCy model based on the language.
-
-        Parameters:
-            language (str): The language for the spaCy model.
+        Load the appropriate spaCy model based on the language if not already loaded.
 
         Returns:
             Language: The loaded spaCy language model.
         """
-        language_map = {
-            "english": "en_core_web_sm",
-            "german": "de_core_news_sm",
-            "french": "fr_core_news_sm"
-        }
+        if self.nlp is None:
+            language_map = {
+                "english": "en_core_web_sm",
+                "german": "de_core_news_sm",
+                "french": "fr_core_news_sm"
+            }
 
-        model_name = language_map.get(language)
-        if model_name is None:
-            raise ValueError("Language not supported. Choose 'english', 'german', or 'french'.")
-        
-        try:
-            return spacy.load(model_name)
-        except OSError:
-            raise OSError(f"Model '{model_name}' not found. Please download it using 'python -m spacy download {model_name}'.")
+            model_name = language_map.get(self.data_language)
+            if model_name is None:
+                raise ValueError("Language not supported. Choose 'english', 'german', or 'french'.")
+            
+            try:
+                self.nlp = spacy.load(model_name)
+            except OSError:
+                raise OSError(f"Model '{model_name}' not found. Please download it using 'python -m spacy download {model_name}'.")
+
+        return self.nlp
 
     def fit(self, X, y=None):
         """
@@ -538,6 +568,9 @@ class SentimentAnalysis(BaseEstimator, TransformerMixin):
         Returns:
             self (SentimentAnalysis): The fitted SentimentAnalysis object.
         """
+        sentiment_features = [self.extract_sentiment_features(text) for text in X]
+        self.vectorizer = DictVectorizer()
+        self.vectorizer.fit(sentiment_features)
         return self
 
     def transform(self, X):
@@ -550,19 +583,33 @@ class SentimentAnalysis(BaseEstimator, TransformerMixin):
         Returns:
             scipy.sparse.csr_matrix: The sentiment features.
         """
-        sentiment_features = []
-        for text in X:
-            doc = self.nlp(text)
-            sentiment_adjectives = self.extract_sentiment_adjectives(doc)
-            sentiment_adverbs = self.extract_sentiment_adverbs(doc)
-            features = {
-                "sentiment_adjectives_count": len(sentiment_adjectives),
-                "sentiment_adverbs_count": len(sentiment_adverbs),
-            }
-            sentiment_features.append(features)
-        
+        sentiment_features = [self.extract_sentiment_features(text) for text in X]
+
+        if self.vectorizer is None:
+            raise ValueError("The vectorizer has not been fitted. Please call 'fit' before 'transform'.")
+
         logger.info("Extracting sentiment features..")
-        return self.vectorizer.fit_transform(sentiment_features)
+        return self.vectorizer.transform(sentiment_features)
+
+    def extract_sentiment_features(self, text):
+        """
+        Extract sentiment features from text.
+
+        Parameters:
+            text (str): The input text.
+
+        Returns:
+            dict: The sentiment features with counts of adjectives and adverbs.
+        """
+        nlp = self._load_spacy_model() 
+        doc = nlp(text)
+        sentiment_adjectives = self.extract_sentiment_adjectives(doc)
+        sentiment_adverbs = self.extract_sentiment_adverbs(doc)
+        features = {
+            "sentiment_adjectives_count": len(sentiment_adjectives),
+            "sentiment_adverbs_count": len(sentiment_adverbs),
+        }
+        return features
 
     def extract_sentiment_adjectives(self, doc):
         """
@@ -574,8 +621,7 @@ class SentimentAnalysis(BaseEstimator, TransformerMixin):
         Returns:
             list: The sentiment adjectives.
         """
-        sentiment_adjectives = [token.text for token in doc if self.is_sentiment_adjective(token)]
-        return sentiment_adjectives
+        return [token.text for token in doc if self.is_sentiment_adjective(token)]
 
     def extract_sentiment_adverbs(self, doc):
         """
@@ -587,8 +633,7 @@ class SentimentAnalysis(BaseEstimator, TransformerMixin):
         Returns:
             list: The sentiment adverbs.
         """
-        sentiment_adverbs = [token.text for token in doc if self.is_sentiment_adverb(token)]
-        return sentiment_adverbs
+        return [token.text for token in doc if self.is_sentiment_adverb(token)]
 
     def is_sentiment_adjective(self, token):
         """
@@ -620,10 +665,6 @@ class Preprocessing(BaseEstimator, TransformerMixin):
     """
     Preprocesses text data by removing punctuation and applying stemming or lemmatization.
 
-    Attributes:
-        stemmer (SnowballStemmer): The SnowballStemmer object.
-        lemmatizer (WordNetLemmatizer): The WordNetLemmatizer object.
-
     Parameters:
         punctuation (bool): Whether to remove punctuation from the text.
         stem (bool): Whether to apply stemming to the words.
@@ -634,37 +675,30 @@ class Preprocessing(BaseEstimator, TransformerMixin):
     def __init__(self, punctuation=False, stem=False, lemmatize=False, data_language="english"):
         self.data_language = data_language
         self.punctuation = punctuation
-        
+
         if stem and lemmatize:
             raise ValueError("Both stem and lemmatize cannot be True at the same time to avoid redundancy.")
         
         self.stem = stem
         self.lemmatize = lemmatize
-        self.stemmer = SnowballStemmer(language=data_language)
+        self.stemmer = None
+        self.lemmatizer = None
+        self.nlp = None
 
-        # Initialize lemmatizer for English
-        if data_language == "english":
-            self.lemmatizer = WordNetLemmatizer()
-        else:
-            # Initialize NLP model
-            self.nlp = self.load_spacy_model(data_language)
-        logger.info("Initialized Preprocessing object..")
-        
     def load_spacy_model(self, data_language):
-        logger.info("Configuring spaCy model..")
         """Loads the appropriate spaCy model based on the specified language."""
+        logger.info("Configuring spaCy model..")
         model_mapping = {
             "german": "de_core_news_sm",
             "french": "fr_core_news_sm",
         }
 
-        # Check if the provided language is supported
         if data_language not in model_mapping:
             logger.error("Language not supported in spaCy models.")
             raise ValueError("Language not supported in spaCy models.")
 
         model_name = model_mapping[data_language]
-        
+
         try:
             logger.info(f"Loading spaCy model: {model_name}")
             nlp = spacy.load(model_name)
@@ -675,49 +709,27 @@ class Preprocessing(BaseEstimator, TransformerMixin):
             raise OSError(f"Please download the {data_language.capitalize()} model using 'python -m spacy download {model_name}'.")
 
     def fit(self, X, y=None):
-        """
-        Fit the TextPreprocessor.
-
-        Parameters:
-            X (array-like): The input features.
-            y (array-like): The target variable.
-
-        Returns:
-            self (TextPreprocessor): The fitted TextPreprocessor object.
-        """
         return self
 
     def transform(self, X):
-        """
-        Transform the input text by applying the specified preprocessing steps.
-
-        Parameters:
-            X (array-like): The input text data.
-
-        Returns:
-            array-like: The preprocessed text data.
-        """
         logger.info("Preprocessing..")
         if not (self.punctuation or self.stem or self.lemmatize):
             logger.info("No preprocessing applied..")
-            logger.info(f"Returned list X of {len(X)} texts.")
             return X
+
+        # Load stemmer and lemmatizer only when needed
+        if self.stem and not self.stemmer:
+            self.stemmer = SnowballStemmer(language=self.data_language)
+        if self.lemmatize and not self.lemmatizer and self.data_language == "english":
+            self.lemmatizer = WordNetLemmatizer()
+        if self.lemmatize and self.data_language != "english" and not self.nlp:
+            self.nlp = self.load_spacy_model(self.data_language)
 
         Xt = [self.preprocess_text(text) for text in X]
         logger.info("Preprocessing applied..")
-        logger.info(f"Returned list Xt of {len(Xt)} preprocessed texts.")
         return Xt
 
     def preprocess_text(self, text):
-        """
-        Preprocess a single text by removing punctuation and applying stemming or lemmatization.
-
-        Parameters:
-            text (str): The input text.
-
-        Returns:
-            str: The preprocessed text.
-        """
         pattern = r"[.,'\"!@#$%^&*(){}?/;`~:\]\[-]" if (self.punctuation or self.stem or self.lemmatize) else ""
         text_without_punctuation = re.sub(pattern, "", text)
         stops = set(stopwords.words("english"))
@@ -797,31 +809,28 @@ class WordLength(BaseEstimator, TransformerMixin):
         Returns:
             float: The mean word length.
         """
-        # tokenize the text into words
+        # Tokenize the text into words
         words = word_tokenize(text)
 
-        # calculate the length of each word
+        # Calculate the length of each word
         word_lengths = [len(word) for word in words]
 
-        # calculate the mean word length
+        # Calculate the mean word length
         if word_lengths:
             mean_word_length = sum(word_lengths) / len(word_lengths)
         else:
             mean_word_length = 0
         return mean_word_length
 
-
 class TextWordCounter(BaseEstimator, TransformerMixin):
     """
     Counts words in text data and extracts either frequency distribution features or TF-IDF features.
 
     Attributes:
-        dict_vectorizer (DictVectorizer): The DictVectorizer object.
-        tfidf_vectorizer (TfidfVectorizer): The TfidfVectorizer object.
-
-    Parameters:
         freqDict (bool): Whether to extract frequency distribution features.
         bigrams (bool): Whether to include bigrams in the frequency distribution features.
+        dict_vectorizer (DictVectorizer): The DictVectorizer object, initialized lazily.
+        tfidf_vectorizer (TfidfVectorizer): The TfidfVectorizer object, initialized lazily.
 
     Methods:
         fit: Fit the TextWordCounter.
@@ -832,8 +841,22 @@ class TextWordCounter(BaseEstimator, TransformerMixin):
     def __init__(self, freqDict=False, bigrams=False):
         self.freqDict = freqDict
         self.bigrams = bigrams
-        self.dict_vectorizer = DictVectorizer()
-        self.tfidf_vectorizer = TfidfVectorizer()
+        self._dict_vectorizer = None  
+        self._tfidf_vectorizer = None  
+
+    @property
+    def dict_vectorizer(self):
+        """Lazy load the DictVectorizer."""
+        if self._dict_vectorizer is None:
+            self._dict_vectorizer = DictVectorizer()
+        return self._dict_vectorizer
+
+    @property
+    def tfidf_vectorizer(self):
+        """Lazy load the TfidfVectorizer."""
+        if self._tfidf_vectorizer is None:
+            self._tfidf_vectorizer = TfidfVectorizer()
+        return self._tfidf_vectorizer
 
     def fit(self, X, y=None):
         if self.freqDict:
@@ -846,7 +869,6 @@ class TextWordCounter(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, X):
-
         if self.freqDict:
             logger.info("Extracting freqDict features..")
             fdist_list = [self.count_words(text) for text in X]
@@ -874,7 +896,6 @@ class TextWordCounter(BaseEstimator, TransformerMixin):
             fdist = FreqDist(words)
         return fdist
 
-
 class VocabularySize(BaseEstimator, TransformerMixin):
     """
     Extracts vocabulary size features from text.
@@ -886,9 +907,28 @@ class VocabularySize(BaseEstimator, TransformerMixin):
     """
 
     def fit(self, X, y=None):
+        """
+        Fit the VocabularySize.
+
+        Parameters:
+            X (array-like): The input features.
+            y (array-like): The target variable.
+
+        Returns:
+            self (VocabularySize): The fitted VocabularySize object.
+        """
         return self
 
     def transform(self, X):
+        """
+        Transform the input text by extracting vocabulary size features.
+
+        Parameters:
+            X (array-like): The input text data.
+
+        Returns:
+            numpy.ndarray: The vocabulary size features.
+        """
         logger.info("Extracting vocabulary size features..")
         vocab_sizes = [self.calculate_vocab_size(text) for text in X]
         vocab_sizes_features = np.array(vocab_sizes).reshape(-1, 1)
@@ -896,12 +936,19 @@ class VocabularySize(BaseEstimator, TransformerMixin):
         return vocab_sizes_features
 
     def calculate_vocab_size(self, text):
+        """
+        Calculate the vocabulary size of a text.
+
+        Parameters:
+            text (str): The input text.
+
+        Returns:
+            int: The vocabulary size.
+        """
         unique_words = set(text.split())
         return len(unique_words)
 
-
 ######### Feature Extractors #########
-
 
 class FeatureExtractorBeforePreprocessing(BaseEstimator, TransformerMixin):
     """
@@ -949,6 +996,7 @@ class FeatureExtractorBeforePreprocessing(BaseEstimator, TransformerMixin):
         self.feature_union = []
         self.combined_transformers = None
         self.data_language = data_language
+        logger.info("==================================================================================")
         logger.info("Initialized FeatureExtractorBeforePreprocessing object..")
 
         # Add transformers based on selected options
@@ -1016,7 +1064,18 @@ class FeatureExtractorBeforePreprocessing(BaseEstimator, TransformerMixin):
                 f"Shape of combined features before preprocessing: {X_array.shape}"
             )
             return X_array
-
+        
+    def get_params(self, deep=True):
+        """Get parameters for this estimator."""
+        return {
+            "stopWords": self.stopWords,
+            "errorDetector": self.errorDetector,
+            "punctuationFrequency": self.punctuationFrequency,
+            "sentenceLength": self.sentenceLength,
+            "namedEntity": self.namedEntity,
+            "sentimentAnalysis": self.sentimentAnalysis,
+            "data_language": self.data_language,
+        }
 
 class FeatureExtractorAfterPreprocessing(BaseEstimator, TransformerMixin):
     """
@@ -1115,6 +1174,14 @@ class FeatureExtractorAfterPreprocessing(BaseEstimator, TransformerMixin):
                 f"Shape of combined features after preprocessing: {X_array.shape}"
             )
             return X_array
+    
+    def get_params(self, deep=True):
+        """Get parameters for this estimator."""
+        return {
+            "textWordCounter": self.textWordCounter,
+            "wordLength": self.wordLength,
+            "vocabularySize": self.vocabularySize,
+        }
 
 ######### Feature Selection #########
 
@@ -1130,14 +1197,6 @@ class FeatureSelection(SelectKBest):
     def __init__(self, k="all", score_func=chi2):
         super().__init__(score_func=score_func, k=k)
         self.k_value = k
-
-    def __deepcopy__(self, memo):
-        cls = self.__class__
-        result = cls.__new__(cls)
-        memo[id(self)] = result
-        for k, v in self.__dict__.items():
-            setattr(result, k, copy.deepcopy(v, memo))
-        return result
 
     def fit(self, X, y):
         """
@@ -1183,3 +1242,10 @@ class FeatureSelection(SelectKBest):
             f"Shape of X after feature selection: {X[:, self.get_support()].shape}"
         )
         return super().transform(X)
+    
+    def get_params(self, deep=True):
+        """Get parameters for this estimator."""
+        return {
+            "k": self.k_value,
+            "score_func": self.score_func,
+        }

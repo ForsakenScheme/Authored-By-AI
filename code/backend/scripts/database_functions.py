@@ -2,8 +2,8 @@ import sqlite3
 import os
 import configparser
 
-from backend.utils.slice_up_essays import slice_up_local_essays, slice_up_raw_db_essays
-from backend.utils.log import setup_logging
+from backend.utils.slice_up_texts import slice_up_local_texts, slice_up_raw_db_texts
+from backend.utils.log import get_logger
 
 from PyQt5.QtWidgets import (
     QHeaderView,
@@ -28,7 +28,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPainter, QFont
 
-logger = setup_logging("local")
+logger = get_logger(__name__)
 
 def create_path_to_db(data_language = "english"):
     """
@@ -319,7 +319,7 @@ def setup_database(data_language):
     db_path = create_path_to_db(data_language)
     data_path = os.path.join(os.getcwd(), "code", "backend", "data", data_language, "raw")
     X, y = get_X_y(data_path)
-    sliced_X, sliced_y = slice_up_raw_db_essays(X, y)
+    sliced_X, sliced_y = slice_up_raw_db_texts(X, y)
     for text, label in zip(X, y):
         insert_text_with_label_into_table(text, label, "raw", db_path, data_language)
     for sliced_text, sliced_label in zip(sliced_X, sliced_y):
@@ -343,7 +343,7 @@ class DeleteDatabaseDialog(QDialog):
         super().__init__(parent)
         self.data_language = data_language
         self.setWindowTitle("Delete Database")
-        self.db_path = create_path_to_db(data_language = "english")
+        self.db_path = create_path_to_db(data_language = self.data_language)
 
         layout = QVBoxLayout(self)
 
@@ -355,7 +355,7 @@ class DeleteDatabaseDialog(QDialog):
 
         button_layout = QHBoxLayout()
         yes_button = QPushButton("Yes")
-        yes_button.clicked.connect(self.delete_database)
+        yes_button.clicked.connect(self.delete_database(self.data_language))
         yes_button.setCursor(Qt.PointingHandCursor)
         button_layout.addWidget(yes_button)
         no_button = QPushButton("No")
@@ -396,7 +396,7 @@ class DeleteDatabaseDialog(QDialog):
             button: The button that was clicked.
         """
         if button.text() == "Yes":
-            self.delete_database()
+            self.delete_database(self.data_language)
         else:
             self.reject()
 
@@ -408,31 +408,20 @@ class DeleteDatabaseDialog(QDialog):
             os.remove(create_path_to_db(data_language))
             logger.info("Database deleted successfully.")
             
-            # Create an information message box
-            success_dialog = QMessageBox.information(self, "Success", "Database deleted successfully.")
+            # Create and show an information message box
+            QMessageBox.information(self, "Success", "Database deleted successfully.")
             
-            # Retrieve the button reference and set the cursor to pointing hand
-            success_button = success_dialog.button(QMessageBox.Ok)
-            success_button.setCursor(Qt.PointingHandCursor)
-
-            self.accept() 
         except FileNotFoundError:
-            warning_dialog = QMessageBox.warning(self, "Warning", "Database not found.")
-            # Set the cursor for the warning dialog's button
-            warning_button = warning_dialog.button(QMessageBox.Ok)
-            warning_button.setCursor(Qt.PointingHandCursor)
-
+            # Show a warning dialog if the database file is not found
+            QMessageBox.warning(self, "Warning", "Database not found.")
             logger.error("Database to delete not found.")
             self.reject() 
-        except Exception as e:
-            error_dialog = QMessageBox.critical(self, "Error", f"An error occurred: {str(e)}")
-            # Set the cursor for the error dialog's button
-            error_button = error_dialog.button(QMessageBox.Ok)
-            error_button.setCursor(Qt.PointingHandCursor)
 
+        except Exception as e:
+            # Show a critical error dialog for any other exceptions
+            QMessageBox.critical(self, "Error", f"An error occurred: {str(e)}")
             logger.error(f"An error occurred: {str(e)}")
             self.reject()
-
 
 class DeleteTextDialog(QDialog):
     """
@@ -957,7 +946,7 @@ class DatabaseWindow(QMainWindow):
         """
         Update the database by slicing up existing local texts and inserting them into the database.
         """
-        slice_up_local_essays(self.data_language)
+        slice_up_local_texts(self.data_language)
         setup_database(self.data_language)
         QMessageBox.information(self, "Success", "Database updated successfully.")
 

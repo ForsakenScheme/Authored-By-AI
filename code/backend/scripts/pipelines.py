@@ -20,8 +20,8 @@ from sklearn.ensemble import (
     BaggingClassifier,
     StackingClassifier,
 )
-
-from backend.utils.log import setup_logging
+from backend.utils.formating import draw_title_box
+from backend.utils.log import get_logger
 from backend.utils.configurating import config
 from backend.scripts.database_functions import (
     get_all_texts_and_labels_from_table,
@@ -38,7 +38,7 @@ from backend.scripts.preprocessing import (
 from joblib import load, dump
 from pathlib import Path
 
-logger = setup_logging("local")
+logger = get_logger(__name__)
 
 class UserConfigPipeline:
     """
@@ -89,15 +89,16 @@ class UserConfigPipeline:
         self.custom_pipeline = None
         self.param_grids = create_all_hyperparam_grids()
         self.param_grid = None
-        self.logger = logger
-        self.logger.info("UserConfigPipeline initialized.")
+        self.classifier_name = "Stacking Support Vector Machine"
+        self.metrics = create_scoring()
+        logger.info("UserConfigPipeline initialized.")
 
     def load_localization_config(self):
         """Loads localization configuration."""
         try:
             self.localization_config.read("code/backend/config/localization.ini")
         except Exception as e:
-            self.logger.error("Failed to load localization configuration: %s", e)
+            logger.error("Failed to load localization configuration: %s", e)
             raise
 
     def get_all_texts_and_labels(self):
@@ -119,7 +120,7 @@ class UserConfigPipeline:
         try:
             return config  # Assuming `config` is defined elsewhere in your code.
         except Exception as e:
-            self.logger.error("Failed to load user configuration: %s", e)
+            logger.error("Failed to load user configuration: %s", e)
             raise
 
     def validate_configuration(self):
@@ -155,7 +156,7 @@ class UserConfigPipeline:
         """
         self.custom_pipeline = self.create_custom_pipeline()
 
-    def setParamGrid(self, classifier_name):
+    def setParamGrid(self, classifier_name:str):
         """
         Set the hyperparameter grid for the specified classifier.
 
@@ -182,7 +183,15 @@ class UserConfigPipeline:
         Returns:
             Pipeline: The custom pipeline.
         """
-        self.logger.info("Creating custom pipeline...")
+        width = 40
+        title = "Custom Pipeline Creation"
+        logger.info(
+            "\n{0}\n= {1} =\n{0}".format(
+                "=" * width,
+                title.center(width - 4)
+            )
+        )
+        logger.info("Creating custom pipeline...")
         if self.classifier_name not in get_all_possible_classifiers():
             raise ValueError(
                 f"Classifier {self.classifier_name} not found in the list of available classifiers."
@@ -220,10 +229,10 @@ class UserConfigPipeline:
             ),
             "data_language": self.data_language,
         }
-        self.logger.info(f"pipeline config: {pipeline_config}")
+        logger.info(f"pipeline config: {pipeline_config}")
         # create a pipeline with the specified config
         pipeline = create_pipeline(**pipeline_config)
-        self.logger.info("Pipeline created.")
+        logger.info("Pipeline created.")
         # determine the classifier based on the user's selection in the ini file
         if self.classifier_name == "Support Vector Machine":
             classifier = SVM(
@@ -234,7 +243,16 @@ class UserConfigPipeline:
                 kernel="linear",
                 random_state=self.random_state,
             )
-        elif self.classifier_name == "Logistic Regression":
+        elif self.classifier_name == "Logistic Regression (L1)":
+            classifier = LogisticRegression(
+                C=10,
+                max_iter=100,
+                solver="liblinear",
+                penalty="l1",
+                multi_class="auto",
+                random_state=self.random_state,
+            )
+        elif self.classifier_name == "Logistic Regression (L2)":
             classifier = LogisticRegression(
                 C=10,
                 max_iter=100,
@@ -319,10 +337,33 @@ class UserConfigPipeline:
                     n_splits=self.nb_folds, shuffle=True, random_state=self.random_state
                 ),
             )
-        elif self.classifier_name == "Stacking Logistic Regression":
+        elif self.classifier_name == "Stacking Logistic Regression (L1)":
             classifier = StackingClassifier(
                 estimators=list(create_base_classifiers().items()),
-                final_estimator=LogisticRegression(),
+                final_estimator = LogisticRegression(
+                    C=10,
+                    max_iter=100,
+                    solver="liblinear",
+                    penalty="l1",
+                    multi_class="auto",
+                    random_state=self.random_state,
+                ),
+                stack_method="auto",
+                cv=StratifiedKFold(
+                    n_splits=self.nb_folds, shuffle=True, random_state=self.random_state
+                ),
+            )
+        elif self.classifier_name == "Stacking Logistic Regression (L2)":
+            classifier = StackingClassifier(
+                estimators=list(create_base_classifiers().items()),
+                final_estimator = LogisticRegression(
+                    C=10,
+                    max_iter=100,
+                    solver="liblinear",
+                    penalty="l2",
+                    multi_class="auto",
+                    random_state=self.random_state,
+                ),
                 stack_method="auto",
                 cv=StratifiedKFold(
                     n_splits=self.nb_folds, shuffle=True, random_state=self.random_state
@@ -380,12 +421,12 @@ class UserConfigPipeline:
             raise ValueError(
                 f"Classifier {self.classifier_name} not found in the list of available classifiers."
             )
-        self.logger.info(f"Selected classifier: {self.classifier_name}")
+        logger.info(f"Selected classifier: {self.classifier_name}")
         # create custom pipeline with feature extraction from Before and After preprocessing, also apply classifier and feature selection
         custom_pipeline = Pipeline(
             [("pipeline", pipeline), ("classification", classifier)]
         )
-        self.logger.info("Custom pipeline created.")
+        logger.info("Added classifier to the custom pipeline. Custom pipeline full steps: \n%s\n", custom_pipeline.named_steps)
         return custom_pipeline
 
     def train(self, test=False):
@@ -402,12 +443,12 @@ class UserConfigPipeline:
         equal_signs_training = "=" * title_training_length
 
         # train the custom model
-        self.logger.info(
+        logger.info(
             f"\n{equal_signs_training}\n{title_training}\n{equal_signs_training}"
         )
-        self.logger.info("Fitting model.")
+        logger.info("Fitting model.")
         self.custom_pipeline = self.custom_pipeline.fit(self.X_train, self.y_train)
-        self.logger.info("Successfully fitted.")
+        logger.info("Successfully fitted.")
 
         if test:
             return self.custom_pipeline
@@ -416,7 +457,7 @@ class UserConfigPipeline:
             ("code/backend/models/" + "/" + self.data_language + "/" + self.classifier_name + ".joblib"), "wb"
         ) as joblib_file:
             dump(self.custom_pipeline, joblib_file)
-            self.logger.info("Successfully dumped trained custom pipeline to file.")
+            logger.info("Successfully dumped trained custom pipeline to file.")
 
     def validate(self):
         """
@@ -432,7 +473,7 @@ class UserConfigPipeline:
         equal_signs_validation = "=" * title_validation_length
         y_pred = self.custom_pipeline.predict(self.X_val)
         # calculate metrics for the validation set
-        self.logger.info(
+        logger.info(
             f"\n{equal_signs_validation}\n{title_validation}\n{equal_signs_validation}"
         )
         (
@@ -449,26 +490,27 @@ class UserConfigPipeline:
             "f1": validation_f1,
             "cm": validation_cm,
         }
-        self.logger.info("Successfully validated custom model...")
-        self.logger.info(f"Validation accuracy: {validation_accuracy}")
-        self.logger.info(f"Validation precision: {validation_precision}")
-        self.logger.info(f"Validation recall: {validation_recall}")
-        self.logger.info(f"Validation F1 score: {validation_f1}")
-        self.logger.info(f"Validation confusion matrix:\n{validation_cm}")
+        logger.info("Successfully validated custom model...")
+        logger.info(f"Validation accuracy: {validation_accuracy}")
+        logger.info(f"Validation precision: {validation_precision}")
+        logger.info(f"Validation recall: {validation_recall}")
+        logger.info(f"Validation F1 score: {validation_f1}")
+        logger.info(f"Validation confusion matrix:\n{validation_cm}")
         return validation_dict
 
     def grid_search(self):
         """
-        Performs grid search to find the best hyperparameters for the custom model.
+        Performs grid search to find the best hyperparameters for the custom model using a given metric. Also calculate the best score for each scoring metric using the best parameters for selected scoring.
 
         Returns:
-            best_parameters_for_score (list): A list of tuples containing the best parameters and scores for each scoring metric.
+            best_parameters_for_metric (list): A list of tuples containing the best parameters and scores for each scoring metric.
         """
         best_parameters_for_score = []
-        for score in create_scoring():
+        for metric in self.metrics:
+            logger.info(f"{draw_title_box(f"Performing grid search for {metric}")}")
             best_params, best_score = perform_grid_search(
                 self.custom_pipeline,
-                score[1],
+                metric[1],
                 self.param_grid,
                 self.X_train,
                 self.y_train,
@@ -476,10 +518,83 @@ class UserConfigPipeline:
                 self.nb_folds,
             )
             best_parameters_for_score.append(
-                ((score[0], best_score), best_params)
+                ((metric[0], best_score), best_params)
             )  # example (("precision", 0.88)), {"classification__C": 1, "classification__kernel": "linear"})
         return best_parameters_for_score
+    
+    def grid_search_best_model(self, scoring_metric="accuracy"):
+        """Performs grid search to find the best model and it's best hyper-parameters given a scoring metric used for evaluation of the custom model.
 
+        Args:
+            scoring_metric (string): name of the scoring metric to be used for evaluation of the custom model (accuracy, precision, recall, f1).
+        
+        Returns:
+            dict: A dictionary containing the result of the grid search.
+            The dictionary has the following keys:\n
+                - "best_parameters" (dict): The best hyperparameters to give the custom model.
+                - "best_score" (float): The best score obtained by the custom model.
+                - "best_classifier" (str): The name of the best classifier.
+        """
+        if scoring_metric == "accuracy":
+            metric = self.metrics[0][1]
+        elif scoring_metric == "precision":
+            metric = self.metrics[1][1]
+        elif scoring_metric == "recall":
+            metric = self.metrics[2][1]
+        elif scoring_metric == "f1":
+            metric = self.metrics[3][1]
+        else:
+            raise ValueError(f"Invalid scoring metric: {scoring_metric}")
+        
+        best_parameters, best_score, best_classifier = perform_grid_search(
+            self.custom_pipeline,
+            metric,
+            create_all_hyperparam_grids(True),
+            self.X_train,
+            self.y_train,
+            self.random_state,
+            self.nb_folds,
+            return_best_classifier=True,            
+        )
+        return best_parameters, best_score, best_classifier
+    
+    def grid_search_best_pipeline(self, scoring_metric="accuracy"):
+        """Performs grid search to find the best pipeline steps and it's best hyper-parameters given a scoring metric used for evaluation of the custom model.
+
+        Args:
+            scoring_metric (string): name of the scoring metric to be used for evaluation of the custom model (accuracy, precision, recall, f1).
+        
+        Returns:
+            dict: A dictionary containing the result of the grid search.
+            The dictionary has the following keys:\n
+                - "best_parameters" (dict): The best hyperparameters to give the custom model.
+                - "best_score" (float): The best score obtained by the custom model.
+                - "best_pipeline" (Pipeline): The best pipeline.
+        """
+        if scoring_metric == "accuracy":
+            metric = self.metrics[0][1]
+        elif scoring_metric == "precision":
+            metric = self.metrics[1][1]
+        elif scoring_metric == "recall":
+            metric = self.metrics[2][1]
+        elif scoring_metric == "f1":
+            metric = self.metrics[3][1]
+        else:
+            raise ValueError(f"Invalid scoring metric: {scoring_metric}")
+        
+        best_parameters, best_score, best_pipeline = perform_grid_search_pipeline(
+            self.custom_pipeline,
+            metric,
+            self.param_grid,
+            self.X_train,
+            self.y_train,
+            self.random_state,
+            self.nb_folds,
+            return_best_pipeline=True,            
+        )
+        return best_parameters, best_score, best_pipeline
+        
+        
     def test(self):
         """
         Calculate metrics for the test set.
@@ -495,7 +610,7 @@ class UserConfigPipeline:
         title = f"=    Testing model {self.classifier_name}   ="
         title_length = len(title)
         equal_signs = "=" * title_length
-        self.logger.info(f"\n{equal_signs}\n{title}\n{equal_signs}")
+        logger.info(f"\n{equal_signs}\n{title}\n{equal_signs}")
         nb_test_ai_predictions = 0
         nb_test_human_predictions = 0
         nb_test_ai_texts = 0
@@ -513,13 +628,13 @@ class UserConfigPipeline:
             "f1": test_f1,
             "cm": cm,
         }
-        self.logger.info("Successfully tested custom model...")
-        self.logger.info(f"Test accuracy: {test_accuracy}")
-        self.logger.info(f"Test precision: {test_precision}")
-        self.logger.info(f"Test recall: {test_recall}")
-        self.logger.info(f"Test F1 score: {test_f1}")
-        self.logger.info(f"Test confusion matrix:\n{cm}")
-        self.logger.info("Extracting test prediction probabilities...")
+        logger.info("Successfully tested custom model...")
+        logger.info(f"Test accuracy: {test_accuracy}")
+        logger.info(f"Test precision: {test_precision}")
+        logger.info(f"Test recall: {test_recall}")
+        logger.info(f"Test F1 score: {test_f1}")
+        logger.info(f"Test confusion matrix:\n{cm}")
+        logger.info("Extracting test prediction probabilities...")
         test_predict_probas = self.custom_pipeline.predict_proba(self.X_test)
         for label, prediction in zip(self.y_test, test_predictions):
             if label == "ai":
@@ -571,7 +686,15 @@ def create_base_classifiers(random_state=42):
             kernel="linear",
             random_state=random_state,
         ),
-        "Logistic Regression": LogisticRegression(
+        "Logistic Regression (L1)": LogisticRegression(
+            C=10,
+            max_iter=100,
+            solver="liblinear",
+            penalty="l2",
+            multi_class="auto",
+            random_state=random_state,
+        ),
+        "Logistic Regression (L2)": LogisticRegression(
             C=10,
             max_iter=100,
             solver="liblinear",
@@ -620,7 +743,15 @@ def create_final_estimators(random_state=42):
         "Gradient Boosting": GradientBoostingClassifier(
             n_estimators=100, random_state=random_state
         ),
-        "Logistic Regression": LogisticRegression(
+        "Logistic Regression (L1)": LogisticRegression(
+            C=10,
+            max_iter=100,
+            solver="liblinear",
+            penalty="l1",
+            multi_class="auto",
+            random_state=random_state,
+        ),
+        "Logistic Regression (L2)": LogisticRegression(
             C=10,
             max_iter=100,
             solver="liblinear",
@@ -758,14 +889,12 @@ def create_pipeline(
         sentimentAnalysis,
         data_language,
     )
-    logger.info(f"Feature extraction before preprocessing: {feature_extraction_before_preprocessing}")
     feature_extraction_after_preprocessing = FeatureExtractorAfterPreprocessing(
         config=configParser,
         textWordCounter=textWordCounter,
         wordLength=wordLength,
         vocabularySize=vocabularySize,
     )
-    logger.info(f"Feature extraction after preprocessing: {feature_extraction_after_preprocessing}")
     preprocessing = Preprocessing(
         configParser.getboolean("Preprocessing", "punctuation"),
         configParser.getboolean("Preprocessing", "stemm"),
@@ -782,7 +911,7 @@ def create_pipeline(
                         feature_extraction_before_preprocessing,
                     ),
                     (
-                        "afterPreprocessingPipeline",
+                        "preprocessingAndFeatureExtractionAfterPreprocessing",
                         Pipeline(
                             [
                                 ("preprocessing", preprocessing),
@@ -798,147 +927,179 @@ def create_pipeline(
         ),
         ("featureSelection", FeatureSelection(k=nb_features)),
     ]
-    logger.info(f"Full pipeline config steps: {steps}")
+    logger.info(f"Full pipeline config steps without classifier:\n{steps}\n")
     return Pipeline(steps)
 
 
-def create_all_hyperparam_grids():
+def create_all_hyperparam_grids(classifiers=False):
     """
     Create hyperparameter grids for different classifiers.
 
     Returns:
         dict: A dictionary containing hyperparameter grids for different classifiers.
     """
-    hyperparam_grids = {
-        "Multinomial Naive Bayes": {
-            "classification__alpha": [0.1, 1, 10],
-            "classification__fit_prior": [True, False],
-        },
-        "Support Vector Machine": {
-            "classification__C": [0.1, 1, 10],
-            "classification__kernel": ["linear", "rbf"],
-            "classification__gamma": [0.001, 0.01, 0.1],
-            "classification__degree": [2, 3, 4],
-            "classification__probability": [True],
-        },
-        "Logistic Regression": {
-            "classification__penalty": ["l1", "l2"],
-            "classification__C": [0.1, 1, 10],
-            "classification__solver": ["liblinear", "lbfgs"],
-            "classification__max_iter": [100, 200, 300],
-            "classification__multi_class": ["auto", "ovr"],
-        },
-        "Decision Tree": {
-            "classification__criterion": ["gini", "entropy"],
-            "classification__splitter": ["best", "random"],
-            "classification__max_depth": [None, 10, 20, 30],
-            "classification__min_samples_split": [2, 5, 10],
-            "classification__min_samples_leaf": [1, 2, 4],
-        },
-        "Random Forest": {
-            "classification__n_estimators": [10, 50, 100, 200],
-            "classification__criterion": ["gini", "entropy"],
-            "classification__max_depth": [None, 10, 20, 30],
-            "classification__min_samples_split": [2, 5, 10],
-            "classification__min_samples_leaf": [1, 2, 4],
-        },
-        "Gradient Boosting": {
-            "classification__n_estimators": [100, 200, 300],
-            "classification__learning_rate": [0.1, 0.01, 0.001],
-            "classification__max_depth": [3, 4, 5],
-            "classification__subsample": [0.8, 0.9, 1.0],
-        },
-        "Stacking Multinomial Naive Bayes": {
-            "classification__final_estimator__alpha": [0.1, 1, 10],
-            "classification__final_estimator__fit_prior": [True, False],
-        },
-        "Stacking Support Vector Machine": {
-            "classification__final_estimator__C": [0.1, 1, 10],
-            "classification__final_estimator__kernel": ["linear", "rbf"],
-            "classification__final_estimator__gamma": [0.001, 0.01, 0.1],
-            "classification__final_estimator__degree": [2, 3, 4],
-            "classification__final_estimator__probability": [True],
-        },
-        "Stacking Logistic Regression": {
-            "classification__final_estimator__penalty": ["l1", "l2"],
-            "classification__final_estimator__C": [0.1, 1, 10],
-            "classification__final_estimator__solver": ["liblinear", "lbfgs"],
-            "classification__final_estimator__max_iter": [100, 200, 300],
-            "classification__final_estimator__multi_class": ["auto", "ovr"],
-        },
-        "Stacking Decision Tree": {
-            "classification__final_estimator__max_depth": [3, 4, 5],
-            "classification__final_estimator__min_samples_split": [2, 5, 10],
-            "classification__final_estimator__min_samples_leaf": [1, 2, 4],
-        },
-        "Stacking Random Forest": {
-            "classification__final_estimator__n_estimators": [100, 200, 300],
-            "classification__final_estimator__criterion": ["gini", "entropy"],
-            "classification__final_estimator__max_depth": [3, 4, 5],
-            "classification__final_estimator__min_samples_split": [2, 5, 10],
-            "classification__final_estimator__min_samples_leaf": [1, 2, 4],
-        },
-        "Stacking Gradient Boosting": {
-            "classification__final_estimator__n_estimators": [100, 200, 300],
-            "classification__final_estimator__learning_rate": [0.1, 0.01, 0.001],
-            "classification__final_estimator__max_depth": [3, 4, 5],
-            "classification__final_estimator__subsample": [0.8, 0.9, 1.0],
-        },
-        "Bagging Multinomial Naive Bayes": {
-            "classification__n_estimators": [10, 50, 100],
-            "classification__max_samples": [0.5, 0.7, 1.0],
-            "classification__max_features": [0.5, 0.7, 1.0],
-            "classification__bootstrap": [True, False],
-            "classification__bootstrap_features": [True, False],
-            "classification__oob_score": [True, False],
-            "classification__warm_start": [True, False],
-        },
-        "Bagging Support Vector Machine": {
-            "classification__n_estimators": [10, 50, 100],
-            "classification__max_samples": [0.5, 0.7, 1.0],
-            "classification__max_features": [0.5, 0.7, 1.0],
-            "classification__bootstrap": [True, False],
-            "classification__bootstrap_features": [True, False],
-            "classification__oob_score": [True, False],
-            "classification__warm_start": [True, False],
-        },
-        "Bagging Logistic Regression": {
-            "classification__n_estimators": [10, 50, 100],
-            "classification__max_samples": [0.5, 0.7, 1.0],
-            "classification__max_features": [0.5, 0.7, 1.0],
-            "classification__bootstrap": [True, False],
-            "classification__bootstrap_features": [True, False],
-            "classification__oob_score": [True, False],
-            "classification__warm_start": [True, False],
-        },
-        "Bagging Decision Tree": {
-            "classification__n_estimators": [10, 50, 100],
-            "classification__max_samples": [0.5, 0.7, 1.0],
-            "classification__max_features": [0.5, 0.7, 1.0],
-            "classification__bootstrap": [True, False],
-            "classification__bootstrap_features": [True, False],
-            "classification__oob_score": [True, False],
-            "classification__warm_start": [True, False],
-        },
-        "Bagging Random Forest": {
-            "classification__n_estimators": [10, 50, 100],
-            "classification__max_samples": [0.5, 0.7, 1.0],
-            "classification__max_features": [0.5, 0.7, 1.0],
-            "classification__bootstrap": [True, False],
-            "classification__bootstrap_features": [True, False],
-            "classification__oob_score": [True, False],
-            "classification__warm_start": [True, False],
-        },
-        "Bagging Gradient Boosting": {
-            "classification__n_estimators": [10, 50, 100],
-            "classification__max_samples": [0.5, 0.7, 1.0],
-            "classification__max_features": [0.5, 0.7, 1.0],
-            "classification__bootstrap": [True, False],
-            "classification__bootstrap_features": [True, False],
-            "classification__oob_score": [True, False],
-            "classification__warm_start": [True, False],
-        },
-    }
+    if not classifiers:
+        hyperparam_grids = {
+            "Multinomial Naive Bayes": {
+                "classification__alpha": [0.1, 1, 10],
+                "classification__fit_prior": [True, False],
+            },
+            "Support Vector Machine": {
+                "classification__C": [0.1, 1, 10],
+                "classification__kernel": ["linear", "rbf"],
+                "classification__gamma": [0.001, 0.01, 0.1],
+                "classification__degree": [2, 3, 4],
+                "classification__probability": [True],
+            },
+            "Logistic Regression (L1)": {
+                "classification__penalty": ["l1"],
+                "classification__C": [0.1, 1, 10],
+                "classification__solver": ["liblinear"],
+                "classification__max_iter": [100, 200, 300],
+                "classification__multi_class": ["auto", "ovr"],
+            },
+            "Logistic Regression (L2)": {
+                "classification__penalty": ["l2"],
+                "classification__C": [0.1, 1, 10],
+                "classification__solver": ["liblinear", "lbfgs"],
+                "classification__max_iter": [100, 200, 300],
+                "classification__multi_class": ["auto", "ovr"],
+            },
+            "Decision Tree": {
+                "classification__criterion": ["gini", "entropy"],
+                "classification__splitter": ["best", "random"],
+                "classification__max_depth": [None, 10, 20, 30],
+                "classification__min_samples_split": [2, 5, 10],
+                "classification__min_samples_leaf": [1, 2, 4],
+            },
+            "Random Forest": {
+                "classification__n_estimators": [10, 50, 100, 200],
+                "classification__criterion": ["gini", "entropy"],
+                "classification__max_depth": [None, 10, 20, 30],
+                "classification__min_samples_split": [2, 5, 10],
+                "classification__min_samples_leaf": [1, 2, 4],
+            },
+            "Gradient Boosting": {
+                "classification__n_estimators": [100, 200, 300],
+                "classification__learning_rate": [0.1, 0.01, 0.001],
+                "classification__max_depth": [3, 4, 5],
+                "classification__subsample": [0.8, 0.9, 1.0],
+            },
+            "Stacking Multinomial Naive Bayes": {
+                "classification__final_estimator__alpha": [0.1, 1, 10],
+                "classification__final_estimator__fit_prior": [True, False],
+            },
+            "Stacking Support Vector Machine": {
+                "classification__final_estimator__C": [0.1, 1, 10],
+                "classification__final_estimator__kernel": ["linear", "rbf"],
+                "classification__final_estimator__gamma": [0.001, 0.01, 0.1],
+                "classification__final_estimator__degree": [2, 3, 4],
+                "classification__final_estimator__probability": [True],
+            },
+            "Stacking Logistic Regression (L1)": {
+                "classification__final_estimator__penalty": ["l1"],
+                "classification__final_estimator__C": [0.1, 1, 10],
+                "classification__final_estimator__solver": ["liblinear"],
+                "classification__final_estimator__max_iter": [100, 200, 300],
+                "classification__final_estimator__multi_class": ["auto", "ovr"],
+            },
+            "Stacking Logistic Regression (L2)": {
+                "classification__final_estimator__penalty": ["l2"],
+                "classification__final_estimator__C": [0.1, 1, 10],
+                "classification__final_estimator__solver": ["liblinear"],
+                "classification__final_estimator__max_iter": [100, 200, 300],
+                "classification__final_estimator__multi_class": ["auto", "ovr"],
+            },
+            "Stacking Decision Tree": {
+                "classification__final_estimator__max_depth": [3, 4, 5],
+                "classification__final_estimator__min_samples_split": [2, 5, 10],
+                "classification__final_estimator__min_samples_leaf": [1, 2, 4],
+            },
+            "Stacking Random Forest": {
+                "classification__final_estimator__n_estimators": [100, 200, 300],
+                "classification__final_estimator__criterion": ["gini", "entropy"],
+                "classification__final_estimator__max_depth": [3, 4, 5],
+                "classification__final_estimator__min_samples_split": [2, 5, 10],
+                "classification__final_estimator__min_samples_leaf": [1, 2, 4],
+            },
+            "Stacking Gradient Boosting": {
+                "classification__final_estimator__n_estimators": [100, 200, 300],
+                "classification__final_estimator__learning_rate": [0.1, 0.01, 0.001],
+                "classification__final_estimator__max_depth": [3, 4, 5],
+                "classification__final_estimator__subsample": [0.8, 0.9, 1.0],
+            },
+            "Bagging Multinomial Naive Bayes": {
+                "classification__n_estimators": [10, 50, 100],
+                "classification__max_samples": [0.5, 0.7, 1.0],
+                "classification__max_features": [0.5, 0.7, 1.0],
+                "classification__bootstrap": [True, False],
+                "classification__bootstrap_features": [True, False],
+                "classification__oob_score": [True, False],
+                "classification__warm_start": [True, False],
+            },
+            "Bagging Support Vector Machine": {
+                "classification__n_estimators": [10, 50, 100],
+                "classification__max_samples": [0.5, 0.7, 1.0],
+                "classification__max_features": [0.5, 0.7, 1.0],
+                "classification__bootstrap": [True, False],
+                "classification__bootstrap_features": [True, False],
+                "classification__oob_score": [True, False],
+                "classification__warm_start": [True, False],
+            },
+            "Bagging Logistic Regression": {
+                "classification__n_estimators": [10, 50, 100],
+                "classification__max_samples": [0.5, 0.7, 1.0],
+                "classification__max_features": [0.5, 0.7, 1.0],
+                "classification__bootstrap": [True, False],
+                "classification__bootstrap_features": [True, False],
+                "classification__oob_score": [True, False],
+                "classification__warm_start": [True, False],
+            },
+            "Bagging Decision Tree": {
+                "classification__n_estimators": [10, 50, 100],
+                "classification__max_samples": [0.5, 0.7, 1.0],
+                "classification__max_features": [0.5, 0.7, 1.0],
+                "classification__bootstrap": [True, False],
+                "classification__bootstrap_features": [True, False],
+                "classification__oob_score": [True, False],
+                "classification__warm_start": [True, False],
+            },
+            "Bagging Random Forest": {
+                "classification__n_estimators": [10, 50, 100],
+                "classification__max_samples": [0.5, 0.7, 1.0],
+                "classification__max_features": [0.5, 0.7, 1.0],
+                "classification__bootstrap": [True, False],
+                "classification__bootstrap_features": [True, False],
+                "classification__oob_score": [True, False],
+                "classification__warm_start": [True, False],
+            },
+            "Bagging Gradient Boosting": {
+                "classification__n_estimators": [10, 50, 100],
+                "classification__max_samples": [0.5, 0.7, 1.0],
+                "classification__max_features": [0.5, 0.7, 1.0],
+                "classification__bootstrap": [True, False],
+                "classification__bootstrap_features": [True, False],
+                "classification__oob_score": [True, False],
+                "classification__warm_start": [True, False],
+            },
+        }
+    else:
+        base_classifiers = create_base_classifiers().items()
+        hyperparam_grids = [
+            {
+                "classification": [MultinomialNB()],
+                "classification__alpha": [0.1, 1, 10],
+                "classification__fit_prior": [True, False],
+            },
+            {
+                "classification": [SVM(probability=True)],
+                "classification__C": [0.1, 1, 10],
+                "classification__kernel": ["linear", "rbf"],
+                "classification__gamma": [0.001, 0.01, 0.1],
+                "classification__degree": [2, 3, 4],
+                "classification__probability": [True, False],
+            },	    
+        ]
     return hyperparam_grids
 
 
@@ -960,7 +1121,7 @@ def create_scoring():
 
 
 def perform_grid_search(
-    pipeline, scoring, param_grid, X_train, y_train, random_state=42, nb_folds=2
+    pipeline, scoring, param_grid, X_train, y_train, random_state=42, nb_folds=10, return_best_classifier=False
 ):
     """
     Perform grid search to find the best hyperparameters for a given pipeline.
@@ -972,12 +1133,13 @@ def perform_grid_search(
         X_train (array-like): The training data.
         y_train (array-like): The target labels.
         random_state (int): The random state for reproducibility. Default is 42.
-        nb_folds (int): The number of folds for cross-validation. Default is 2.
+        nb_folds (int): The number of folds for cross-validation. Default is 10.
 
     Returns:
         best_parameters (dict): The best hyperparameters found by grid search.
         best_score (float): The best score obtained by grid search.
     """
+    logger.info(f"Total (param_combinations, fits) to perform for grid search: {calculate_total_fits(param_grid, nb_folds)}")
     logger.info("Performing grid search...")
     cv = StratifiedKFold(n_splits=nb_folds, shuffle=True, random_state=random_state)
     grid_search = GridSearchCV(
@@ -985,17 +1147,23 @@ def perform_grid_search(
         param_grid=param_grid,
         scoring=scoring,
         cv=cv,
-        refit=False,
+        refit=return_best_classifier,
         n_jobs=-1,
+        verbose=1
     )
     grid_search.fit(X_train, y_train)
+    
     best_parameters = grid_search.best_params_
     best_score = grid_search.best_score_
-    logger.info(f"Best parameters: {best_parameters}")
-    logger.info(f"Best score: {best_score}")
-    logger.info("Successfully performed grid search...")
-    return best_parameters, best_score
+    
+    if return_best_classifier:
+        best_estimator = grid_search.best_estimator_
+        return best_parameters, best_score, best_estimator
+    else:
+        return best_parameters, best_score
 
+def perform_grid_search_pipeline():
+    pass
 
 def calculate_metrics(y_value, y_pred):
     """
@@ -1019,3 +1187,26 @@ def calculate_metrics(y_value, y_pred):
     f1 = f1_score(y_value, y_pred, average="macro")
     logger.info("Successfully extracted metrics.")
     return accuracy, precision, recall, f1, cm
+
+def calculate_total_fits(param_grid, n_folds=10):
+    """
+    Calculate the total number of grid search fits for given parameter grids.
+    
+    :param parameter_grids: List of dictionaries where each dictionary represents
+                            the parameter grid for a specific model.
+    :param n_folds: The number of cross-validation folds (default is 5).
+    :return: Total number of fits.
+    """
+    total_combinations = 0
+
+    for grid in param_grid:
+        # Calculate the number of combinations for each model's parameter grid
+        combinations = len(param_grid)  # Initial value should be the amount of entries (classifiers) in the grid
+        for values in grid.values():
+            combinations *= len(values)
+        total_combinations += combinations
+
+    # Calculate total number of fits with cross-validation folds
+    total_fits_with_folds = total_combinations * n_folds
+
+    return total_combinations, total_fits_with_folds

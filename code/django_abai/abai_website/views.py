@@ -1,10 +1,8 @@
 from django.shortcuts import render
 from django.http import JsonResponse
 
-# Create your views here.
-
 from backend.scripts.detect_origin_web import detect_origin
-
+# Create your views here.
 
 def home(request):
     """
@@ -25,7 +23,7 @@ def home(request):
 
         # Detect origin of the input text
         try:
-            predictions = detect_origin(input_text, selected_value, selected_data_language)
+            predictions = detect_origin(input_text, selected_data_language, selected_value)
         except Exception as e:
             return JsonResponse({"error": str(e)})
 

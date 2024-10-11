@@ -4,34 +4,39 @@ from joblib import load
 from pathlib import Path
 from sklearn.pipeline import Pipeline
 
-
-def detect_origin(texts: list, model: str = "Stacking Support Vector Machine", data_language: str = "english") -> str:
+def detect_origin(texts: list, data_language: str = "english", metric: str = "accuracy") -> str:
     """
     Detects the origin of the input text using the specified model.
 
     Parameters:
-
         texts (list): The input text to detect the origin of.
-        model (str): The name of the model to use for prediction. Default is "Stacking Support Vector Machine".
         data_language (str): The language of the data used to train the model. Default is "english".
+        metric (str): The metric used to determine which model to load. Default is "accuracy".
 
     Returns:
         predictions (list[tuple(predicted_label, predicted_probability)]): The list containing predicted label and predicted probability for each of the input texts.
     """
-    # Construct the file path
-    file_path = Path(__file__).resolve().parent.parent.parent / f"backend/models/{data_language}/{model}.joblib"
+    # Construct the directory path to look for .joblib files
+    model_directory = Path(__file__).resolve().parent.parent.parent / f"backend/models/{data_language}/best/{metric}"
+
     try:
-        # Load the model file
-        model_pipeline = load(file_path)
-    except FileNotFoundError:
-        raise FileNotFoundError(
-            f"The model file for {model} was not found. It probably hasn't been trained yet."
-        )
+        # Find the first .joblib file in the directory
+        joblib_files = list(model_directory.glob("*.joblib"))
+        if not joblib_files:
+            raise FileNotFoundError(f"No model files found for metric '{metric}' in '{model_directory}'.")
+
+        # Load the first .joblib file found
+        model_pipeline = load(joblib_files[0])
+    except FileNotFoundError as e:
+        raise FileNotFoundError(f"The model file for metric '{metric}' was not found. It probably hasn't been trained yet.")
     except Exception as e:
         raise Exception(f"An error occurred while loading the model: {e}")
+
     # If text contains a newline character, split the text into a list of strings and remove empty strings
-    texts = texts.split("\n")
-    texts = [t for t in texts if t != ""]
+    if isinstance(texts, str):  
+        texts = texts.split("\n")  
+    texts = [t for t in texts if t.strip() != ""]  
+
     predictions = predict_unknown_texts(model_pipeline, texts)
     for prediction in predictions:
         assert (
@@ -40,6 +45,7 @@ def detect_origin(texts: list, model: str = "Stacking Support Vector Machine", d
             or prediction[0] == "skipped (too short)"
         ), "Invalid prediction"
     return predictions
+
 
 
 def predict_unknown_texts(model_pipeline: Pipeline, texts, min_length=50):

@@ -6,7 +6,7 @@ from sklearn.model_selection import StratifiedKFold, learning_curve
 from backend.scripts.pipelines import UserConfigPipeline
 from backend.scripts.database_functions import find_text_id_by_text
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-from utils.log import setup_logging
+from utils.log import get_logger
 from time import time
 
 from PyQt5.QtWidgets import (
@@ -29,7 +29,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt, pyqtSignal
 
-logger = setup_logging("local")
+logger = get_logger(__name__)
 
 def train_single(model: str, pipeline: UserConfigPipeline) -> float:
     """
@@ -51,6 +51,25 @@ def train_single(model: str, pipeline: UserConfigPipeline) -> float:
 
     return train_time
 
+def grid_search_best_of_all_models(pipeline: UserConfigPipeline) -> tuple[dict, float, str, float]:
+    """
+    Perform a grid search to find the best model based on the user's config choice.
+
+    Parameters:
+        pipeline (UserConfigPipeline): The pipeline object used for grid search.
+
+    Returns:
+        grid_search_time (float): The time taken to perform the grid search in seconds.
+        
+    """
+    start = time()
+
+    # Perform grid_search_best_of_all
+    best_parameters, best_score, best_classifier = pipeline.grid_search_best_of_all()
+    grid_search_time = time() - start
+    
+    return best_parameters, best_score, best_classifier, grid_search_time
+    
 
 def grid_search_single(model: str, pipeline: UserConfigPipeline) -> float:
     """
@@ -248,8 +267,7 @@ class TrainResultWindow(QDialog):
     ):
         super().__init__()
         self.setWindowTitle("Train results")
-        self.setWindowFlags(self.windowFlags() | Qt.WindowMinimizeButtonHint)
-        self.setWindowFlags(self.windowFlags() | Qt.WindowMaximizeButtonHint)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowMinimizeButtonHint | Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint)
 
         # Create scroll area
         scroll_area = QScrollArea()
@@ -373,7 +391,7 @@ class MatplotlibWindow(QWidget):
         )
 
 
-class GridSearchwindow(QDialog):
+class GridSearchWindow(QDialog):
     """
     A QDialog window to display the results of a grid search.
 
@@ -464,9 +482,7 @@ class ValidationResultWindow(QDialog):
     ):
         super().__init__()
         self.setWindowTitle("Validation results")
-        self.setWindowFlags(self.windowFlags() | Qt.WindowMinimizeButtonHint)
-        self.setWindowFlags(self.windowFlags() | Qt.WindowMaximizeButtonHint)
-
+        self.setWindowFlags(self.windowFlags() | Qt.WindowMinimizeButtonHint | Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint)
         # Create scroll area
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(
@@ -545,8 +561,7 @@ class TestResultWindow(QDialog):
     ):
         super().__init__()
         self.setWindowTitle("Test results")
-        self.setWindowFlags(self.windowFlags() | Qt.WindowMinimizeButtonHint)
-        self.setWindowFlags(self.windowFlags() | Qt.WindowMaximizeButtonHint)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowMinimizeButtonHint | Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint)
 
         # Create scroll area
         scroll_area = QScrollArea()
@@ -665,8 +680,7 @@ class TrainValidateTestResultWindow(QDialog):
     ):
         super().__init__()
         self.setWindowTitle("Train, validate, test results")
-        self.setWindowFlags(self.windowFlags() | Qt.WindowMinimizeButtonHint)
-        self.setWindowFlags(self.windowFlags() | Qt.WindowMaximizeButtonHint)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowMinimizeButtonHint | Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint)
 
         # Create scroll area
         scroll_area = QScrollArea()
@@ -843,7 +857,8 @@ class TrainValidateTestWindow(QMainWindow):
         models = [
             "Decision Tree",
             "Gradient Boosting",
-            "Logistic Regression",
+            "Logistic Regression (L1)",
+            "Logistic Regression (L2)",
             "Multinomial Naive Bayes",
             "Random Forest",
             "Support Vector Machine",
@@ -851,7 +866,8 @@ class TrainValidateTestWindow(QMainWindow):
             "Stacking Gradient Boosting",
             "Stacking Random Forest",
             "Stacking Support Vector Machine",
-            "Stacking Logistic Regression",
+            "Stacking Logistic Regression (L1)",
+            "Stacking Logistic Regression (L2)",
             "Stacking Multinomial Naive Bayes",
             "Bagging Decision Tree",
             "Bagging Gradient Boosting",
@@ -862,7 +878,7 @@ class TrainValidateTestWindow(QMainWindow):
         ]
 
         models_layout = QHBoxLayout()
-
+        models_layout.addStretch()
         # Create three columns for the checkboxes
         num_models = len(models)
         num_per_column = (
@@ -870,15 +886,16 @@ class TrainValidateTestWindow(QMainWindow):
         ) // 3  # Add 2 to ensure enough rows for uneven division
         for i in range(3):
             column_layout = QVBoxLayout()
+            column_layout.setSpacing(20)
             start_index = i * num_per_column
             end_index = min((i + 1) * num_per_column, num_models)
             for model in models[start_index:end_index]:
                 checkbox = QCheckBox(model)
                 checkbox.setCursor(Qt.PointingHandCursor)
                 column_layout.addWidget(checkbox)
+            models_layout.addStretch()
             models_layout.addLayout(column_layout)
-            models_layout.addSpacing(30)
-
+        models_layout.addStretch()
         self.layout.addLayout(models_layout)
         self.layout.addSpacing(50)
 
@@ -916,7 +933,6 @@ class TrainValidateTestWindow(QMainWindow):
         """
         try:
             self.pipeline = UserConfigPipeline()
-            logger.info("Pipeline initialized for training.")
         except Exception as e:
             logger.error(f"Error while initializing pipeline: {e}")
             self.errorOccurred.emit(str(e))
@@ -1028,7 +1044,7 @@ class TrainValidateTestWindow(QMainWindow):
             dict_grid_search_lists[model] = grid_search_list
 
         # Display results for each models in a new window
-        grid_search_window = GridSearchwindow(
+        grid_search_window = GridSearchWindow(
             selected_models,
             dict_grid_search_time,
             dict_grid_search_lists,

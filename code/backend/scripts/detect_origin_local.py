@@ -5,7 +5,9 @@ from joblib import load
 from pathlib import Path
 from sklearn.pipeline import Pipeline
 
-from backend.utils.log import setup_logging
+from backend.utils.log import get_logger
+
+logger = get_logger(__name__)
 
 from PyQt5.QtWidgets import (
     QMainWindow,
@@ -24,9 +26,6 @@ from PyQt5.QtWidgets import (
     QApplication,
 )
 from PyQt5.QtCore import Qt
-
-logger = setup_logging("local")
-
 
 def predict_unknown_texts(model_pipeline: Pipeline, texts, min_length=50, web=False):
     """
@@ -207,7 +206,8 @@ class DetectOriginWindow(QMainWindow):
         classifiers = [
             "Decision Tree",
             "Gradient Boosting",
-            "Logistic Regression",
+            "Logistic Regression (L1)",
+            "Logistic Regression (L2)",
             "Multinomial Naive Bayes",
             "Random Forest",
             "Support Vector Machine",
@@ -215,7 +215,8 @@ class DetectOriginWindow(QMainWindow):
             "Stacking Gradient Boosting",
             "Stacking Random Forest",
             "Stacking Support Vector Machine",
-            "Stacking Logistic Regression",
+            "Stacking Logistic Regression (L1)",
+            "Stacking Logistic Regression (L2)"
             "Stacking Multinomial Naive Bayes",
             "Bagging Decision Tree",
             "Bagging Gradient Boosting",

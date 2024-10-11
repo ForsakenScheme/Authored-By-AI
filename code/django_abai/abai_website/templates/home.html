@@ -12,100 +12,37 @@
         <h5><strong>Welcome to ABAI !</strong></h5>
         <br>
         <h5><strong>Basic Usage</strong></h5>
-        <p>To use the tool, simply input the text you want to analyze as <strong>plain text</strong> in the textbox below and <strong>click</strong> the <strong class="btn btn-primary">Detect Origin</strong> button.</p> 
+        <p>To use the tool, simply put the text you want to analyze as <strong>plain text</strong> in the textbox below and <strong>click</strong> the <strong class="btn btn-primary">Detect Origin</strong> button.</p> 
         <p>The model will then process the text(s) to provide you the <strong>result(s)</strong> with a <strong>percentage</strong> indicating the certainty of the given result. 
           Only texts with <strong>at least 50 words</strong> will be accepted, else they will be <strong>skipped</strong>. You can add <strong>multiple paragraphs separated by a new line</strong> for them to be analyzed at once. 
           Each paragraph will be analyzed and <strong>treated as separate input</strong>. The result(s) will be <strong>displayed</strong> below the "detect origin" button and will contain the <strong>predicted label</strong> with it's <strong>confidence level</strong> expressed in percentage.</p> <br>
         <h5 ><strong>Advanced Usage</strong></h5>
-        <p>If you want to use a <strong>specific classifier</strong>, you can select it from the <strong class="btn btn-outline-primary">Settings</strong> button and then <strong>click</strong> the <strong class="btn btn-primary">Detect Origin</strong> button. By <strong>default</strong>, the model will use the <strong>Stacking Support Vector Machine</strong> classifier.</p>
+        <p>The advanced usage allows you to select a <strong>specific scoring metric</strong>, you can show them by pressing the <strong class="btn btn-outline-primary">Settings</strong> button. You can then check the scoring metric you'd like to use. Finaly simply <strong>click</strong> the <strong class="btn btn-primary">Detect Origin</strong> button. By <strong>default</strong>, the model will use the <strong>F1</strong> scoring metric.</p>
       </div>      
       <!-- Configuration options div -->
       <div id="configOptions" class="card-body ml-5" style="display: none;">
         <div class="row">
-          <!-- Classic classifiers column -->
-          <div class="col">
-            <h5 class="mb-3">Classic classifiers</h5>
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" value="Decision Tree" id="decision_tree">
-              <label class="form-check-label" for="decision_tree">Decision Tree</label>
+            <h5 class="ml-5 col-12"><strong>Select Scoring Metric:</strong></h5> 
+            <div class="col text-center"> 
+                <div class="d-flex justify-content-center mt-2"> 
+                    <div class="form-check mx-2"> 
+                        <input class="form-check-input" type="radio" name="scoringMetric" value="accuracy" id="accuracy" checked>
+                        <label class="form-check-label" for="accuracy">Accuracy</label>
+                    </div>
+                    <div class="form-check mx-2"> 
+                        <input class="form-check-input" type="radio" name="scoringMetric" value="precision" id="precision">
+                        <label class="form-check-label" for="precision">Precision</label>
+                    </div>
+                    <div class="form-check mx-2"> 
+                        <input class="form-check-input" type="radio" name="scoringMetric" value="f1" id="f1">
+                        <label class="form-check-label" for="f1">F1 Score</label>
+                    </div>
+                    <div class="form-check mx-2"> 
+                        <input class="form-check-input" type="radio" name="scoringMetric" value="recall" id="recall">
+                        <label class="form-check-label" for="recall">Recall</label>
+                    </div>
+                </div>
             </div>
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" value="Gradient Boosting" id="gradient_boosting">
-              <label class="form-check-label" for="gradient_boosting">Gradient Boosting</label>
-            </div>
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" value="Logistic Regression" id="logistic_regression">
-              <label class="form-check-label" for="logistic_regression">Logistic Regression</label>
-            </div>
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" value="Multinomial Naive Bayes" id="multinomial_naive_bayes">
-              <label class="form-check-label" for="multinomial_naive_bayes">Multinomial Naive Bayes</label>
-            </div>
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" value="Random Forest" id="random_forest">
-              <label class="form-check-label" for="random_forest">Random Forest</label>
-            </div>
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" value="Support Vector Machine" id="support_vector_machine">
-              <label class="form-check-label" for="support_vector_machine">Support Vector Machine</label>
-            </div>
-          </div>
-          <!-- Bagging classifiers column -->
-          <div class="col">
-            <h5 class="mb-3">Bagging Classifiers</h5>
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" value="Bagging Decision Tree" id="bagging_decision_tree">
-              <label class="form-check-label" for="bagging_decision_tree">Bagging Decision Tree</label>
-            </div>
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" value="Bagging Gradient Boosting" id="bagging_gradient_boosting">
-              <label class="form-check-label" for="bagging_gradient_boosting">Bagging Gradient Boosting</label>
-            </div>
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" value="Bagging Logistic Regression" id="bagging_logistic_regression">
-              <label class="form-check-label" for="bagging_logistic_regression">Bagging Logistic Regression</label>
-            </div>
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" value="Bagging Multinomial Naive Bayes" id="bagging_multinomial_naive_bayes">
-              <label class="form-check-label" for="bagging_multinomial_naive_bayes">Bagging Multinomial Naive Bayes</label>
-            </div>
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" value="Bagging Random Forest" id="bagging_random_forest">
-              <label class="form-check-label" for="bagging_random_forest">Bagging Random Forest</label>
-            </div>
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" value="Bagging Support Vector Machine" id="bagging_support_vector_machine">
-              <label class="form-check-label" for="bagging_support_vector_machine">Bagging Support Vector Machine</label>
-            </div>
-          </div>
-          <!-- Stacking classifiers column -->
-          <div class="col">
-            <h5 class="mb-3">Stacking Classifiers</h5>
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" value="Stacking Decision Tree" id="stacking_decision_tree">
-              <label class="form-check-label" for="stacking_decision_tree">Stacking Decision Tree</label>
-            </div>
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" value="Stacking Decision Tree" id="stacking_gradient_boosting">
-              <label class="form-check-label" for="stacking_gradient_boosting">Stacking Gradient Boosting</label>
-            </div>
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" value="Stacking Decision Tree" id="stacking_random_forest">
-              <label class="form-check-label" for="stacking_random_forest">Stacking Random Forest</label>
-            </div>
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" value="Stacking Multinomial Naive Bayes" id="stacking_multinomial_naive_bayes">
-              <label class="form-check-label" for="stacking_multinomial_naive_bayes">Stacking Multinomial Naive Bayes</label>
-            </div>
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" value="Stacking Logistic Regression" id="stacking_logistic_regression">
-              <label class="form-check-label" for="stacking_logistic_regression">Stacking Logistic Regression</label>
-            </div>
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" value="Stacking Support Vector Machine" id="stacking_support_vector_machine">
-              <label class="form-check-label" for="stacking_support_vector_machine">Stacking Support Vector Machine</label>
-            </div>
-          </div>
         </div>
       </div>
       <!-- End of Configuration options div -->
@@ -181,22 +118,16 @@
     updateCharacterCount();
   };
 
-  // Unique checkbox selection
-  // Function to handle checkbox selection
-  function handleCheckboxSelection(checkbox) {
-    // Uncheck all checkboxes except the one that was clicked
-    const checkboxes = document.querySelectorAll('input[type="checkbox"]');
-    checkboxes.forEach((cb) => {
-      if (cb !== checkbox) {
-        cb.checked = false;
-      }
-    });
+  // Unique radio button selection
+  // Function to handle radio button selection
+  function handleRadioSelection(radio) {
+    // No need to uncheck others since only one radio button can be selected at a time
   }
 
-  // Add event listeners to all checkboxes
-  document.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
-    checkbox.addEventListener('click', () => {
-      handleCheckboxSelection(checkbox);
+  // Add event listeners to all radio buttons
+  document.querySelectorAll('input[type="radio"]').forEach((radio) => {
+    radio.addEventListener('click', () => {
+      handleRadioSelection(radio);
     });
   });
 
@@ -204,7 +135,7 @@
   // Configuration button click event
   const configButton = document.getElementById('configButton');
   const configOptions = document.getElementById('configOptions');
-  configButton.addEventListener('click', function() {
+  configButton.addEventListener('click', function () {
     // Toggle visibility of configuration options div
     if (configOptions.style.display === 'none') {
       configOptions.style.display = 'block';
@@ -223,17 +154,17 @@
   const user_input = document.getElementById('user_input');
   // Get the character count display element
   const charCount = document.getElementById('charCount');
+
   // Add input event listener to the textarea and update character count
-  user_input.addEventListener('input', function() {
+  user_input.addEventListener('input', function () {
     updateCharacterCount();
   });
 
-  // Define a default value if no checkbox was ticked
-  const default_checkbox_value = "Stacking Support Vector Machine";
+  // Define a default value if no radio button was selected
+  const default_radio_value = "accuracy"; // Default scoring metric
 
   // Add event listener for form submission
-  form.addEventListener('submit', function(event) {
-
+  form.addEventListener('submit', function (event) {
     // Prevent the default form submission
     event.preventDefault();
 
@@ -255,9 +186,9 @@
     // Display loading animation
     loadingAnimation.style.display = 'block';
 
-    // Get the value of the selected checkbox (if any), else use the default value
-    const selected_checkbox = document.querySelector('input[type="checkbox"]:checked');
-    const selected_value = selected_checkbox ? selected_checkbox.value : default_checkbox_value;
+    // Get the value of the selected radio button (if any), else use the default value
+    const selected_radio = document.querySelector('input[type="radio"]:checked');
+    const selected_value = selected_radio ? selected_radio.value : default_radio_value;
 
     // Send an AJAX request to the server
     fetch('', {

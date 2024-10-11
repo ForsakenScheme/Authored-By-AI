@@ -4,10 +4,12 @@ from pathlib import Path
 ROOT_DIR = Path(__file__).resolve().parent.parent
 sys.path.append(str(ROOT_DIR))
 
+from backend.utils.log import setup_logging
 from backend.utils.configurating import ConfigurationWindow
 from backend.scripts.train_validate_test import TrainValidateTestWindow
 from backend.scripts.detect_origin_local import DetectOriginWindow
 from backend.scripts.database_functions import DatabaseWindow
+from backend.scripts.suggestion import SuggestionWindow
 
 from PyQt5.QtWidgets import (
     QApplication,
@@ -152,6 +154,7 @@ class MainWindow(QMainWindow):
         menu_buttons = [
             ("Database", self.open_database_window),
             ("Configuration", self.open_configuration_window),
+            ("Suggestions", self.open_suggestion_window),
             ("Train, Test and Validate", self.open_train_test_validate_window),
             ("Detect Origin", self.open_detect_origin_window),
         ]
@@ -206,6 +209,11 @@ class MainWindow(QMainWindow):
         """Open the configuration window with the selected data language."""
         self.configuration_window = ConfigurationWindow(localization_config=self.localization_config)
         self.configuration_window.show()
+        
+    def open_suggestion_window(self):
+        """Open the suggestion window with the selected data language."""
+        self.suggestion_window = SuggestionWindow(localization_config=self.localization_config)
+        self.suggestion_window.show()
 
     def open_train_test_validate_window(self):
         """Open the train, test, and validate window with the selected data language."""
@@ -241,8 +249,11 @@ class MainWindow(QMainWindow):
             self.train_validate_test_window.close()
         if self.detect_origin_window:
             self.detect_origin_window.close()
+        if self.suggestion_window:
+            self.suggestion_window.close()
 
 def main():
+    setup_logging()
     app = QApplication([])
     app.setStyle("Fusion")
     screen = app.primaryScreen()
