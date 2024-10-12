@@ -369,10 +369,33 @@ class SuggestionWindow(QMainWindow):
 
         for metric in selected_metrics:
             model_path = os.path.join(os.getcwd(), f"code/backend/models/{self.data_language}/best/{metric}")
-            joblib_files = [f for f in os.listdir(model_path) if f.endswith('.joblib')]
+            model_joblib_files = [f for f in os.listdir(model_path) if f.endswith('.joblib') and not f.endswith('_score.joblib')]
+            score_joblib_files = [f for f in os.listdir(model_path) if f.endswith('_score.joblib')]
             
-            pipeline_path = os.path.join(model_path, joblib_files[0])
-            pipeline = load(pipeline_path)
+            pipeline_path = os.path.join(model_path, model_joblib_files[0])
+            try:
+                pipeline = load(pipeline_path)
+            except Exception as e:
+                logger.error(f"Error while loading pipeline: {e}")
+                self.errorOccurred.emit(str(e))
+                QMessageBox.critical(
+                    self,
+                    "Error",
+                    'Error while loading pipeline.\n\nProbably a bad path setup. You can check the logs in the "code/backend/logs/" folder.',
+                )
+                return
+            try:
+                score_path = os.path.join(model_path, score_joblib_files[0])
+                score = load(score_path)
+            except Exception as e:
+                logger.error(f"Error while loading score: {e}")
+                self.errorOccurred.emit(str(e))
+                QMessageBox.critical(
+                    self,
+                    "Error",
+                    'Error while loading score.\n\nProbably a bad path setup. You can check the logs in the "code/backend/logs/" folder.',
+                )
+                return
 
             # Get the classifier from the pipeline's 'classification' step
             classifier = pipeline.named_steps["classification"]
@@ -425,10 +448,11 @@ class SuggestionWindow(QMainWindow):
             pipelines_info[metric] = {
                 "classifier_name": estimator_name,
                 "classifier_params": classifier_params,
-                "transformer_params": transformer_params
-            }            
+                "transformer_params": transformer_params,
+                "best_score": score
+            }
         # Display the info of each pipeline for each selected metric 
-        self.best_pipelines_per_metric_info_window = BestPipelinesInfoWindow(pipelines_info, self.data_language)
+        self.best_pipelines_per_metric_info_window = BestModelsInfoWindow(pipelines_info, self.data_language)
         self.best_pipelines_per_metric_info_window.show()
 
     def get_stacking_classifier_params(self, classifier, model_name_mapping):
@@ -463,7 +487,7 @@ class SuggestionWindow(QMainWindow):
                 formatted_params[param_name] = param_value
         return formatted_params
 
-class BestPipelinesInfoWindow(QDialog):
+class BestModelsInfoWindow(QDialog):
     def __init__(self, pipelines_info, data_language):
         super().__init__()
         self.pipelines_info = pipelines_info
@@ -494,7 +518,7 @@ class BestPipelinesInfoWindow(QDialog):
             # Get classifier info to include full name for bagging classifiers
             classifier_info = pipelines_info[metric]['classifier_name']
             content += f"Best classifier for <b>{metric}</b>: {classifier_info}\n\n"
-            content += "Recommended <b>parameter configuration</b> to achieve this:\n\n"
+            content += f"Recommended <b>parameter configuration</b> to achieve a <b>score</b> of {pipelines_info["best_score_dict"][metric]} %:\n\n"
 
             # Display classifier parameters
             classifier_params = pipelines_info[metric]["classifier_params"]
@@ -505,7 +529,6 @@ class BestPipelinesInfoWindow(QDialog):
                     base_estimator_names = classifier_params['estimator'].__class__.__name__
                     content += f"Bagging with <b>base estimator</b>: <b>{base_estimator_names}</b>\n\n"
                 else:
-                    print(f"{metric} is a stacking classifier")
                     # Handle more complex stacking setups
                     content += f"<b>Classifier Type:</b> Stacking\n\n"
 
@@ -698,12 +721,34 @@ class BestModelResultWindow(QDialog):
 
             # Define the full path for saving the model
             model_filename = os.path.join(metric_directory, f"{estimator_name}.joblib")
-
+            best_score = self.best_score_dict[metric]
+            
             # Save the fitted model to a file
-            dump(estimator, model_filename)
-
-            # Log success message
-            logger.info(f"Successfully saved {estimator_name} for {metric} to {model_filename}.")
+            try:
+                dump(estimator, model_filename)
+                logger.info(f"Successfully saved {estimator_name} for {metric} to {model_filename}.")
+                                
+            except Exception as e:
+                logger.error(f"Error while saving model: {e}")
+                QMessageBox.critical(
+                    self,
+                    "Error",
+                    'Error while saving model.\n\nProbably a bad path setup. You can check the logs in the "code/backend/logs/" folder.',
+                )
+                return
+            # Save the best score to a file with the same name as the model
+            try: 
+                dump(best_score, os.path.join(metric_directory, f"{estimator_name}_score.joblib"))
+                logger.info(f"Successfully saved {estimator_name} score for {metric} to {model_filename}.")
+                
+            except Exception as e:
+                logger.error(f"Error while saving score: {e}")
+                QMessageBox.critical(
+                    self,
+                    "Error",
+                    'Error while saving score.\n\nProbably a bad path setup. You can check the logs in the "code/backend/logs/" folder.',
+                )
+                return          
                     
 class BestPipelineResultWindow(QDialog):
     """
