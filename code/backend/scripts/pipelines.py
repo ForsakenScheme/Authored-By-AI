@@ -198,7 +198,7 @@ class UserConfigPipeline:
         logger.info("Creating custom pipeline...")
         if self.classifier_name not in get_all_possible_classifiers():
             raise ValueError(
-                f"Classifier {self.classifier_name} not found in the list of available classifiers."
+                f"Classifier {self.classifier_name} not found in the list of all possible classifiers."
             )
         # get pipeline config based on the .ini file
         pipeline_config = {
@@ -300,6 +300,7 @@ class UserConfigPipeline:
                 cv=StratifiedKFold(
                     n_splits=self.nb_folds, shuffle=True, random_state=self.random_state
                 ),
+                n_jobs=-1,
             )
         elif self.classifier_name == "Stacking Random Forest":
             classifier = StackingClassifier(
@@ -311,6 +312,7 @@ class UserConfigPipeline:
                 cv=StratifiedKFold(
                     n_splits=self.nb_folds, shuffle=True, random_state=self.random_state
                 ),
+                n_jobs=-1,
             )
         elif self.classifier_name == "Stacking Gradient Boosting":
             classifier = StackingClassifier(
@@ -322,6 +324,7 @@ class UserConfigPipeline:
                 cv=StratifiedKFold(
                     n_splits=self.nb_folds, shuffle=True, random_state=self.random_state
                 ),
+                n_jobs=-1,
             )
         elif self.classifier_name == "Stacking Multinomial Naive Bayes":
             classifier = StackingClassifier(
@@ -331,6 +334,7 @@ class UserConfigPipeline:
                 cv=StratifiedKFold(
                     n_splits=self.nb_folds, shuffle=True, random_state=self.random_state
                 ),
+                n_jobs=-1,
             )
         elif self.classifier_name == "Stacking Support Vector Machine":
             classifier = StackingClassifier(
@@ -340,6 +344,7 @@ class UserConfigPipeline:
                 cv=StratifiedKFold(
                     n_splits=self.nb_folds, shuffle=True, random_state=self.random_state
                 ),
+                n_jobs=-1,
             )
         elif self.classifier_name == "Stacking Logistic Regression (L1)":
             classifier = StackingClassifier(
@@ -347,8 +352,8 @@ class UserConfigPipeline:
                 final_estimator = LogisticRegression(
                     C=10,
                     max_iter=100,
-                    solver="liblinear",
-                    penalty="l1",
+                    solver="lbfgs",
+                    penalty="l2",
                     multi_class="auto",
                     random_state=self.random_state,
                 ),
@@ -356,6 +361,7 @@ class UserConfigPipeline:
                 cv=StratifiedKFold(
                     n_splits=self.nb_folds, shuffle=True, random_state=self.random_state
                 ),
+                n_jobs=-1,
             )
         elif self.classifier_name == "Stacking Logistic Regression (L2)":
             classifier = StackingClassifier(
@@ -372,6 +378,7 @@ class UserConfigPipeline:
                 cv=StratifiedKFold(
                     n_splits=self.nb_folds, shuffle=True, random_state=self.random_state
                 ),
+                n_jobs=-1,
             )
         elif self.classifier_name == "Bagging Multinomial Naive Bayes":
             classifier = BaggingClassifier(
@@ -380,6 +387,7 @@ class UserConfigPipeline:
                 max_samples=0.8,
                 max_features=0.8,
                 random_state=self.random_state,
+                n_jobs=-1,
             )
         elif self.classifier_name == "Bagging Support Vector Machine":
             classifier = BaggingClassifier(
@@ -388,14 +396,25 @@ class UserConfigPipeline:
                 max_samples=0.8,
                 max_features=0.8,
                 random_state=self.random_state,
+                n_jobs=-1,
             )
-        elif self.classifier_name == "Bagging Logistic Regression":
+        elif self.classifier_name == "Bagging Logistic Regression (L1)":
             classifier = BaggingClassifier(
-                LogisticRegression(),
+                LogisticRegression(penalty="l1", C=10, solver="liblinear", multi_class="auto", random_state=self.random_state),
                 n_estimators=10,
                 max_samples=0.8,
                 max_features=0.8,
                 random_state=self.random_state,
+                n_jobs=-1,
+            )
+        elif self.classifier_name == "Bagging Logistic Regression (L2)":
+            classifier = BaggingClassifier(
+                LogisticRegression(penalty="l2", C=10, solver="lbfgs", multi_class="auto", random_state=self.random_state),
+                n_estimators=10,
+                max_samples=0.8,
+                max_features=0.8,
+                random_state=self.random_state,
+                n_jobs=-1,
             )
         elif self.classifier_name == "Bagging Decision Tree":
             classifier = BaggingClassifier(
@@ -404,6 +423,7 @@ class UserConfigPipeline:
                 max_samples=0.8,
                 max_features=0.8,
                 random_state=self.random_state,
+                n_jobs=-1,
             )
         elif self.classifier_name == "Bagging Random Forest":
             classifier = BaggingClassifier(
@@ -412,6 +432,7 @@ class UserConfigPipeline:
                 max_samples=0.8,
                 max_features=0.8,
                 random_state=self.random_state,
+                n_jobs=-1,
             )
         elif self.classifier_name == "Bagging Gradient Boosting":
             classifier = BaggingClassifier(
@@ -420,10 +441,11 @@ class UserConfigPipeline:
                 max_samples=0.8,
                 max_features=0.8,
                 random_state=self.random_state,
+                n_jobs=-1,
             )
         else:
             raise ValueError(
-                f"Classifier {self.classifier_name} not found in the list of available classifiers."
+                f"Classifier {self.classifier_name} not found in the list of available classifiers. During custom pipeline creation."
             )
         logger.info(f"Selected classifier: {self.classifier_name}")
         # create custom pipeline with feature extraction from Before and After preprocessing, also apply classifier and feature selection
@@ -481,9 +503,7 @@ class UserConfigPipeline:
         equal_signs_validation = "=" * title_validation_length
         y_pred = self.custom_pipeline.predict(self.X_val)
         # calculate metrics for the validation set
-        logger.info(
-            f"\n{equal_signs_validation}\n{title_validation}\n{equal_signs_validation}"
-        )
+        logger.info(f"\n{equal_signs_validation}\n{title_validation}\n{equal_signs_validation}")
         (
             validation_accuracy,
             validation_precision,
@@ -798,6 +818,7 @@ def create_stacking_classifiers(
                 shuffle=True,
                 random_state=random_state,
             ),
+            n_jobs=-1,
         )
         stacking_classifiers[f"Stacking {estimator_name}"] = stacking_classifier
     return stacking_classifiers
@@ -821,6 +842,7 @@ def create_bagging_classifiers(base_classifiers: dict, random_state=42):
             max_samples=0.8,
             max_features=0.8,
             random_state=random_state,
+            n_jobs=-1,
         )
         bagging_classifiers[f"Bagging {base_name}"] = bagging_classifier
     return bagging_classifiers
@@ -1060,7 +1082,16 @@ def create_all_hyperparam_grids(classifiers=False):
                 "classification__oob_score": [True, False],
                 "classification__warm_start": [True, False],
             },
-            "Bagging Logistic Regression": {
+            "Bagging Logistic Regression (L1)": {
+                "classification__n_estimators": [10, 50, 100],
+                "classification__max_samples": [0.5, 0.7, 1.0],
+                "classification__max_features": [0.5, 0.7, 1.0],
+                "classification__bootstrap": [True, False],
+                "classification__bootstrap_features": [True, False],
+                "classification__oob_score": [True, False],
+                "classification__warm_start": [True, False],
+            },
+            "Bagging Logistic Regression (L2)": {
                 "classification__n_estimators": [10, 50, 100],
                 "classification__max_samples": [0.5, 0.7, 1.0],
                 "classification__max_features": [0.5, 0.7, 1.0],

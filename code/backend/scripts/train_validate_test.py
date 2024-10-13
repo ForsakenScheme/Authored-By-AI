@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import configparser
+import os
 
 from sklearn.model_selection import StratifiedKFold, learning_curve
 from backend.scripts.pipelines import UserConfigPipeline
@@ -8,6 +9,7 @@ from backend.scripts.database_functions import find_text_id_by_text
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from utils.log import get_logger
 from time import time
+from joblib import dump, load
 
 from PyQt5.QtWidgets import (
     QMainWindow,
@@ -96,7 +98,7 @@ def grid_search_single(model: str, pipeline: UserConfigPipeline) -> float:
     return grid_search_time, best_parameters_for_score
 
 
-def validate_single(model, pipeline: UserConfigPipeline):
+def validate_single(model, pipeline: UserConfigPipeline, data_language: str) -> tuple[float, dict]:
     """
     Validate a single model based on the user's choice.
 
@@ -114,6 +116,10 @@ def validate_single(model, pipeline: UserConfigPipeline):
     # Validate the model
     validation_dict = pipeline.validate()
     validation_time = time() - start
+    # Store validation metrics in a joblib file along the existing model files
+    filtered_metrics = {k: v for k, v in validation_dict.items() if k != "cm"}
+    dump(filtered_metrics, os.path.join(os.getcwd(), f"code/backend/models/{data_language}", model + " Metrics" + ".joblib"))
+    logger.info(f"Validation metrics for model {model} saved in {os.path.join(os.getcwd(), f'code/backend/models/{data_language}', model + " Metrics" + '.joblib')}.")
 
     return validation_time, validation_dict
 
@@ -174,7 +180,7 @@ def test_single(model, pipeline: UserConfigPipeline):
     )
 
 
-def train_validate_test_single(model, pipeline: UserConfigPipeline):
+def train_validate_test_single(model, pipeline: UserConfigPipeline, data_language: str) -> tuple:
     """
     Train, validate, and test a single model based on the user's choice.
 
@@ -210,7 +216,7 @@ def train_validate_test_single(model, pipeline: UserConfigPipeline):
     logger.info(f"Loading the just trained model {pipeline.classifier_name}.")
     pipeline.loadCustomPipeline(model)
     logger.info(f"Successfully loaded model {pipeline.classifier_name}.")
-    validation_time, validation_dict = validate_single(model, pipeline)
+    validation_time, validation_dict = validate_single(model, pipeline, data_language)
 
     # Test the model
     (
@@ -473,12 +479,11 @@ class ValidationResultWindow(QDialog):
         dict_validation_time (Dict[str, float]): Dictionary containing validation times for each model.
         dict_validation_dicts (Dict[str, dict]): Dictionary containing validation results for each model.
     """
-
     def __init__(
         self,
-        selected_models,
-        dict_validation_time,
-        dict_validation_dicts,
+        selected_models = None,
+        dict_validation_time = None,
+        dict_validation_dicts = None,
     ):
         super().__init__()
         self.setWindowTitle("Validation results")
@@ -502,11 +507,15 @@ class ValidationResultWindow(QDialog):
         # Add content to content widget
         content = ""
         for model in selected_models:
-            validation_time = dict_validation_time[model]
+            if dict_validation_time is not None:
+                validation_time = dict_validation_time[model]
             validation_dict = dict_validation_dicts[model]
             content += f"<pre><b>Validation results for {model}</b>\n\n"
-            content += f"\tValidated in {validation_time:.2f} seconds.\n\n"
-            content += f"<b>Validation metrics:</b>\n\n\tAccuracy: {validation_dict['accuracy'] * 100:.2f}%\n\tPrecision: {validation_dict['precision'] * 100:.2f}%\n\tRecall: {validation_dict['recall'] * 100:.2f}%\n\tF1 Score: {validation_dict['f1'] * 100:.2f}%\n\tConfusion matrix:\n{validation_dict['cm']}\n\n"
+            if dict_validation_time is not None and validation_time is not None:
+                content += f"\tValidated in {validation_time:.2f} seconds.\n\n"
+            content += f"<b>Validation metrics:</b>\n\n\tAccuracy: {validation_dict['accuracy'] * 100:.2f}%\n\tPrecision: {validation_dict['precision'] * 100:.2f}%\n\tRecall: {validation_dict['recall'] * 100:.2f}%\n\tF1 Score: {validation_dict['f1'] * 100:.2f}%"
+            if 'cm' in validation_dict:
+                content += f"\n\tConfusion matrix:\n{validation_dict['cm']}\n\n"
             content += "</pre>\n\n==================================================================================\n\n"
 
         # Create QLabel widget to display the content
@@ -845,6 +854,7 @@ class TrainValidateTestWindow(QMainWindow):
             "Learning curve (using the configuration file)",
             "Grid search (using the configuration file)",
             "Validate (loading existing model)",
+            "Get validation metrics from saved metrics file",
             "Test (loading existing model)",
             "Train, validate and test (using the configuration file)",
         ]
@@ -871,7 +881,8 @@ class TrainValidateTestWindow(QMainWindow):
             "Stacking Multinomial Naive Bayes",
             "Bagging Decision Tree",
             "Bagging Gradient Boosting",
-            "Bagging Logistic Regression",
+            "Bagging Logistic Regression (L1)",
+            "Bagging Logistic Regression (L2)",
             "Bagging Multinomial Naive Bayes",
             "Bagging Random Forest",
             "Bagging Support Vector Machine",
@@ -1092,17 +1103,17 @@ class TrainValidateTestWindow(QMainWindow):
         for model in selected_models:
             self.pipeline.setClassifierName(model)
             self.pipeline.loadCustomPipeline(model)
-            validation_time, validation_dict = validate_single(model, self.pipeline)
-
+            validation_time, validation_dict = validate_single(model, self.pipeline, self.data_language)
+            # Display results for each models in a new window
             # Store results in dictionaries
             dict_validation_time[model] = validation_time
             dict_validation_dicts[model] = validation_dict
 
         # Display results for each models in a new window
         validation_result_window = ValidationResultWindow(
-            selected_models,
-            dict_validation_time,
-            dict_validation_dicts,
+            selected_models=selected_models,
+            dict_validation_time=dict_validation_time,
+            dict_validation_dicts=dict_validation_dicts,
         )
         self.childWindows.append(validation_result_window)
         validation_result_window.show()
@@ -1225,7 +1236,7 @@ class TrainValidateTestWindow(QMainWindow):
                 test_dict,
                 predictions,
                 predict_probas,
-            ) = train_validate_test_single(model, self.pipeline)
+            ) = train_validate_test_single(model, self.pipeline, self.data_language)
 
             # Store results in dictionaries
             dict_pipelines[model] = self.pipeline
@@ -1266,6 +1277,30 @@ class TrainValidateTestWindow(QMainWindow):
         )
         self.childWindows.append(train_validate_test_result_window)
         train_validate_test_result_window.show()
+    
+    def get_validation_metrics_from_saved_metrics_file(self, selected_models):
+        """Extract validation metrics from saved metrics file and display them in a new window.
+
+        Args:
+            selected_models (__List__): The selected models.
+        """
+        if selected_models == []:
+            logger.error("No model selected.")
+            QMessageBox.critical(self, "Error", "No model selected.")
+            return
+        dict_validation_dicts = {}
+        for model in selected_models:
+            path_to_metrics_file = os.path.join(os.getcwd(), f"code/backend/models/{self.data_language}", model + " Metrics.joblib")
+            try:
+                metrics_dict = load(path_to_metrics_file)
+            except Exception as e:
+                logger.error(f"Error while loading metrics file: {e}")
+                QMessageBox.critical(self, "Error", f"Error while loading metrics file: {e}")
+                return
+            dict_validation_dicts[model] = metrics_dict
+        validation_result_window = ValidationResultWindow(selected_models=selected_models, dict_validation_time=None, dict_validation_dicts=dict_validation_dicts)
+        self.childWindows.append(validation_result_window)
+        validation_result_window.show()
 
     def closeEvent(self, event):
         """
@@ -1317,11 +1352,11 @@ class TrainValidateTestWindow(QMainWindow):
                 self.validate_models(selected_models)
             elif selected_action == "Test (loading existing model)":
                 self.test_models(selected_models)
-            elif (
-                selected_action
-                == "Train, validate and test (using the configuration file)"
-            ):
+            elif (selected_action== "Train, validate and test (using the configuration file)"):
                 self.train_validate_test_models(selected_models)
+            elif (selected_action == "Get validation metrics from saved metrics file"):
+                self.get_validation_metrics_from_saved_metrics_file(selected_models)
+                
         except Exception as e:
             QMessageBox.warning(self, "Error", str(e))
         finally:
