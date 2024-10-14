@@ -138,9 +138,9 @@ class SuggestionWindow(QMainWindow):
         self.action_combo.setView(QListView())
         self.action_combo.view().setCursor(Qt.PointingHandCursor)
         self.actions = [
-            "Grid Search for the best MODEL (uses user configuration file) using selected metrics",
-            "Grid Search for the best PIPELINE using selected metrics",
-            "Extract settings for the best SAVED models for each metric"
+            "Grid Search for the best MODEL (respects user configuration file) using each selected metric",
+            "Grid Search for the best PIPELINE using each selected metric",
+            "Extract best score and parameters for the best SAVED model for each selected metric",
         ]
         self.action_combo.addItems(self.actions)
         self.action_combo.setCursor(Qt.PointingHandCursor)
@@ -286,11 +286,11 @@ class SuggestionWindow(QMainWindow):
                 QApplication.processEvents()
 
             # Perform action
-            if selected_action == "Grid Search for the best MODEL (uses user configuration file) using selected metrics":
+            if selected_action == "Grid Search for the best MODEL (respects user configuration file) using each selected metric":
                 self.grid_search_best_models(selected_metrics)
-            elif selected_action == "Grid Search for the best PIPELINE using selected metrics":
+            elif selected_action == "Grid Search for the best PIPELINE using each selected metric":
                 self.grid_search_best_pipelines(selected_metrics)
-            elif selected_action == "Extract settings for the best SAVED models for each metric":
+            elif selected_action == "Extract best score and parameters for the best SAVED model for each selected metric":
                 self.extract_best_models_values(selected_metrics)
             else:
                 QMessageBox.critical(self, "Error", "Invalid action selected.")
@@ -369,8 +369,8 @@ class SuggestionWindow(QMainWindow):
 
         for metric in selected_metrics:
             model_path = os.path.join(os.getcwd(), f"code/backend/models/{self.data_language}/best/{metric}")
-            model_joblib_files = [f for f in os.listdir(model_path) if f.endswith('.joblib') and not f.endswith('_score.joblib')]
-            score_joblib_files = [f for f in os.listdir(model_path) if f.endswith('_score.joblib')]
+            model_joblib_files = [f for f in os.listdir(model_path) if f.endswith('.joblib') and not f.endswith(f' {metric}.joblib')]
+            score_joblib_files = [f for f in os.listdir(model_path) if f.endswith(f' {metric}.joblib')]
             
             pipeline_path = os.path.join(model_path, model_joblib_files[0])
             try:
@@ -511,14 +511,13 @@ class BestModelsInfoWindow(QDialog):
         
         self.data_language = data_language
         content = ""
-
         for metric in self.pipelines_info.keys():
             content += f"<pre><b>Pipeline configuration for best {metric.upper()} model.</b>\n\n"
             
             # Get classifier info to include full name for bagging classifiers
             classifier_info = pipelines_info[metric]['classifier_name']
             content += f"Best classifier for <b>{metric}</b>: {classifier_info}\n\n"
-            content += f"Recommended <b>parameter configuration</b> to achieve a <b>score</b> of {pipelines_info["best_score_dict"][metric]} %:\n\n"
+            content += f"Recommended <b>parameter configuration</b> to achieve a <b>score</b> of {pipelines_info[metric]["best_score"]} %:\n\n"
 
             # Display classifier parameters
             classifier_params = pipelines_info[metric]["classifier_params"]
