@@ -721,7 +721,6 @@ class BestModelResultWindow(QDialog):
 
             # Define the full path for saving the model
             model_filename = os.path.join(metric_directory, f"{estimator_name}.joblib")
-            best_score = self.best_score_dict[metric]
             
             # Save the fitted model to a file
             try:
@@ -736,9 +735,9 @@ class BestModelResultWindow(QDialog):
                     'Error while saving model.\n\nProbably a bad path setup. You can check the logs in the "code/backend/logs/" folder.',
                 )
                 return
-            # Save the best score to a file with the same name as the model
+            # Save the best score for given metric to a file with the same name as the best model for the metric
             try: 
-                dump(best_score, os.path.join(metric_directory, f"{estimator_name}_score.joblib"))
+                dump(self.best_score_dict[metric], os.path.join(metric_directory, f"{estimator_name} {metric}.joblib"))
                 logger.info(f"Successfully saved {estimator_name} score for {metric} to {model_filename}.")
                 
             except Exception as e:
