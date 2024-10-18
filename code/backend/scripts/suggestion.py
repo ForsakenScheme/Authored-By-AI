@@ -312,7 +312,7 @@ class SuggestionWindow(QMainWindow):
             selected_metrics (List[str]): The selected scoring metrics.
         """
         self.check_config()
-        self.pipeline.setCustomPipeline()
+        self.pipeline.set_custom_pipeline()
         best_parameters_dict = {}
         best_score_dict = {}
         best_estimator_dict = {}
@@ -320,7 +320,7 @@ class SuggestionWindow(QMainWindow):
         
         for metric in selected_metrics:
             # Perform grid search
-            logger.info(f"\n{draw_title_box(f"Performing grid search for {metric}", 4)}")
+            logger.info(f"{draw_title_box(f"Performing grid search for {metric}", 4)}")
             best_parameters_dict[metric], best_score_dict[metric], best_estimator_dict[metric], grid_search_time_dict[metric] = grid_search_best_model(self.pipeline, metric)
         # Display the results
         self.best_model_result_window = BestModelResultWindow(

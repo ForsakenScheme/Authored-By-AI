@@ -190,6 +190,7 @@ class MainWindow(QMainWindow):
         self.configuration_window = None
         self.train_validate_test_window = None
         self.detect_origin_window = None
+        self.suggestion_window = None
 
     def set_data_language(self, language):
         """Set the data language locally."""

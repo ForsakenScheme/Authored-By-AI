@@ -293,7 +293,7 @@ class DetectOriginWindow(QMainWindow):
             return
         selected_model = self.classifier_combo.currentText()
         # Construct the file path
-        file_path = file_path = Path(__file__).resolve().parent.parent.parent / f"backend/models/{self.data_language}/{selected_model}.joblib"
+        file_path = file_path = Path(__file__).resolve().parent.parent.parent / f"backend/models/{self.data_language}/trained_models/{selected_model}.joblib"
         try:
             # Load the model file
             model_pipeline = load(file_path)

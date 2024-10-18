@@ -1,6 +1,7 @@
 import configparser
 
 from sklearn.pipeline import Pipeline, FeatureUnion
+from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import (
     accuracy_score,
     make_scorer,
@@ -141,7 +142,7 @@ class UserConfigPipeline:
         if self.config.getboolean("Preprocessing", "lemmatize") and self.config.getboolean("Preprocessing", "stemm"):
             raise ValueError("Lemmatization must be disabled if stemming is enabled.")
 
-    def setClassifierName(self, classifier_name):
+    def set_classifier_name(self, classifier_name):
         """
         Set the classifier name.
 
@@ -150,13 +151,13 @@ class UserConfigPipeline:
         """
         self.classifier_name = classifier_name
 
-    def setCustomPipeline(self):
+    def set_custom_pipeline(self):
         """
         Set the custom pipeline based on the user's configuration.
         """
         self.custom_pipeline = self.create_custom_pipeline()
 
-    def setParamGrid(self, classifier_name:str):
+    def set_param_grid(self, classifier_name:str):
         """
         Set the hyperparameter grid for the specified classifier.
 
@@ -165,14 +166,14 @@ class UserConfigPipeline:
         """
         self.param_grid = self.param_grids[classifier_name]
 
-    def loadCustomPipeline(self, model):
+    def load_custom_pipeline(self, model):
         """
         Load a custom pipeline from a file.
 
         Parameters:
             model (str): The name of the model file containing the custom pipeline.
         """
-        file_path = Path(__file__).resolve().parent.parent.parent / f"backend/models/{self.data_language}/{model}.joblib"
+        file_path = Path(__file__).resolve().parent.parent.parent / f"backend/models/{self.data_language}/trained_models/{model}.joblib"
         try:
             model_pipeline = load(file_path)
             logger.info("Successfully loaded custom pipeline from file.")
@@ -187,14 +188,7 @@ class UserConfigPipeline:
         Returns:
             Pipeline: The custom pipeline.
         """
-        width = 40
-        title = "Custom Pipeline Creation"
-        logger.info(
-            "\n{0}\n= {1} =\n{0}".format(
-                "=" * width,
-                title.center(width - 4)
-            )
-        )
+        logger.info(f"{draw_title_box("Custom pipeline creation", 4)}")
         logger.info("Creating custom pipeline...")
         if self.classifier_name not in get_all_possible_classifiers():
             raise ValueError(
@@ -255,6 +249,7 @@ class UserConfigPipeline:
                 penalty="l1",
                 multi_class="auto",
                 random_state=self.random_state,
+                n_jobs=-1,
             )
         elif self.classifier_name == "Logistic Regression (L2)":
             classifier = LogisticRegression(
@@ -264,6 +259,7 @@ class UserConfigPipeline:
                 penalty="l2",
                 multi_class="auto",
                 random_state=self.random_state,
+                n_jobs=-1,
             )
         elif self.classifier_name == "Decision Tree":
             classifier = DecisionTreeClassifier(
@@ -281,6 +277,7 @@ class UserConfigPipeline:
                 n_estimators=200,
                 criterion="gini",
                 random_state=self.random_state,
+                n_jobs=-1,
             )
         elif self.classifier_name == "Gradient Boosting":
             classifier = GradientBoostingClassifier(
@@ -295,7 +292,13 @@ class UserConfigPipeline:
         elif self.classifier_name == "Stacking Decision Tree":
             classifier = StackingClassifier(
                 estimators=list(create_base_classifiers().items()),
-                final_estimator=DecisionTreeClassifier(max_depth=5),
+                    final_estimator=DecisionTreeClassifier(
+                    criterion="entropy",
+                    max_depth=30,
+                    random_state=self.random_state,
+                    min_samples_leaf=4,
+                    min_samples_split=2,
+                ),
                 stack_method="auto",
                 cv=StratifiedKFold(
                     n_splits=self.nb_folds, shuffle=True, random_state=self.random_state
@@ -306,19 +309,29 @@ class UserConfigPipeline:
             classifier = StackingClassifier(
                 estimators=list(create_base_classifiers().items()),
                 final_estimator=RandomForestClassifier(
-                    n_estimators=100, random_state=self.random_state
+                    max_depth=None,
+                    min_samples_leaf=1,
+                    min_samples_split=5,
+                    n_estimators=200,
+                    criterion="gini",
+                    random_state=self.random_state,
+                    n_jobs=-1,
                 ),
                 stack_method="auto",
                 cv=StratifiedKFold(
                     n_splits=self.nb_folds, shuffle=True, random_state=self.random_state
                 ),
-                n_jobs=-1,
+                n_jobs=-1
             )
         elif self.classifier_name == "Stacking Gradient Boosting":
             classifier = StackingClassifier(
                 estimators=list(create_base_classifiers().items()),
                 final_estimator=GradientBoostingClassifier(
-                    n_estimators=100, random_state=self.random_state
+                    n_estimators=200,
+                    max_depth=5,
+                    learning_rate=0.1,
+                    subsample=0.9,
+                    random_state=self.random_state,
                 ),
                 stack_method="auto",
                 cv=StratifiedKFold(
@@ -329,7 +342,7 @@ class UserConfigPipeline:
         elif self.classifier_name == "Stacking Multinomial Naive Bayes":
             classifier = StackingClassifier(
                 estimators=list(create_base_classifiers().items()),
-                final_estimator=MultinomialNB(),
+                final_estimator=MultinomialNB(alpha=1.0, fit_prior=True),
                 stack_method="auto",
                 cv=StratifiedKFold(
                     n_splits=self.nb_folds, shuffle=True, random_state=self.random_state
@@ -339,7 +352,14 @@ class UserConfigPipeline:
         elif self.classifier_name == "Stacking Support Vector Machine":
             classifier = StackingClassifier(
                 estimators=list(create_base_classifiers().items()),
-                final_estimator=SVM(probability=True),
+                final_estimator=SVM(
+                    C=10,
+                    degree=2,
+                    gamma=0.001,
+                    probability=True,
+                    kernel="linear",
+                    random_state=self.random_state,
+                ),
                 stack_method="auto",
                 cv=StratifiedKFold(
                     n_splits=self.nb_folds, shuffle=True, random_state=self.random_state
@@ -382,7 +402,7 @@ class UserConfigPipeline:
             )
         elif self.classifier_name == "Bagging Multinomial Naive Bayes":
             classifier = BaggingClassifier(
-                MultinomialNB(),
+                MultinomialNB(alpha=1.0, fit_prior=True),
                 n_estimators=10,
                 max_samples=0.8,
                 max_features=0.8,
@@ -391,7 +411,7 @@ class UserConfigPipeline:
             )
         elif self.classifier_name == "Bagging Support Vector Machine":
             classifier = BaggingClassifier(
-                SVM(probability=True),
+                SVM(C=10, degree=2, gamma=0.001, probability=True, kernel="linear", random_state=self.random_state),
                 n_estimators=10,
                 max_samples=0.8,
                 max_features=0.8,
@@ -418,7 +438,7 @@ class UserConfigPipeline:
             )
         elif self.classifier_name == "Bagging Decision Tree":
             classifier = BaggingClassifier(
-                DecisionTreeClassifier(),
+                DecisionTreeClassifier(criterion="entropy", max_depth=30, random_state=self.random_state, min_samples_leaf=4, min_samples_split=2),
                 n_estimators=10,
                 max_samples=0.8,
                 max_features=0.8,
@@ -427,7 +447,7 @@ class UserConfigPipeline:
             )
         elif self.classifier_name == "Bagging Random Forest":
             classifier = BaggingClassifier(
-                RandomForestClassifier(),
+                RandomForestClassifier(max_depth=None, min_samples_leaf=1, min_samples_split=5, n_estimators=200, criterion="gini", random_state=self.random_state),
                 n_estimators=10,
                 max_samples=0.8,
                 max_features=0.8,
@@ -436,7 +456,7 @@ class UserConfigPipeline:
             )
         elif self.classifier_name == "Bagging Gradient Boosting":
             classifier = BaggingClassifier(
-                GradientBoostingClassifier(),
+                GradientBoostingClassifier(n_estimators=200, max_depth=5, learning_rate=0.1, subsample=0.9, random_state=self.random_state),
                 n_estimators=10,
                 max_samples=0.8,
                 max_features=0.8,
@@ -464,24 +484,17 @@ class UserConfigPipeline:
 
             best_parameters_for_score (list): A list of tuples containing the best parameters and scores for each scoring metric.
         """
-        title_training = f"=    Training model {self.classifier_name}   ="
-        title_training_length = len(title_training)
-        equal_signs_training = "=" * title_training_length
-
         # train the custom model
-        logger.info(
-            f"\n{equal_signs_training}\n{title_training}\n{equal_signs_training}"
-        )
+        logger.info(f"{draw_title_box(f"Training model {self.classifier_name}", 4)}")
         logger.info("Fitting model.")
         self.custom_pipeline = self.custom_pipeline.fit(self.X_train, self.y_train)
         logger.info("Successfully fitted.")
-
         if test:
             return self.custom_pipeline
         # save the trained model to a file
         try:
             with open(
-                ("code/backend/models/" + "/" + self.data_language + "/" + self.classifier_name + ".joblib"), "wb"
+                ("code/backend/models/" + "/" + self.data_language + "/trained_models" +"/" + self.classifier_name + ".joblib"), "wb"
             ) as joblib_file:
                 dump(self.custom_pipeline, joblib_file)
             logger.info("Successfully dumped trained custom pipeline to file.")
@@ -498,12 +511,9 @@ class UserConfigPipeline:
 
             best_parameters_for_score (list): A list of tuples containing the best parameters and scores for each scoring metric.
         """
-        title_validation = f"=    Validating model {self.classifier_name}   ="
-        title_validation_length = len(title_validation)
-        equal_signs_validation = "=" * title_validation_length
         y_pred = self.custom_pipeline.predict(self.X_val)
-        # calculate metrics for the validation set
-        logger.info(f"\n{equal_signs_validation}\n{title_validation}\n{equal_signs_validation}")
+        logger.info(f"{draw_title_box(f"Validation model {self.classifier_name}", 4)}")
+        # Calculate metrics for the validation set
         (
             validation_accuracy,
             validation_precision,
@@ -535,7 +545,7 @@ class UserConfigPipeline:
         """
         best_parameters_for_score = []
         for metric in self.metrics:
-            logger.info(f"{draw_title_box(f"Performing grid search for {metric}")}")
+            logger.info(f"{draw_title_box(f"Performing grid search for {self.classifier_name} with {metric[1]} scoring metric", 4) }")
             best_params, best_score = perform_grid_search(
                 self.custom_pipeline,
                 metric[1],
@@ -635,10 +645,7 @@ class UserConfigPipeline:
                 - "recall": The test recall.
                 - "f1": The test F1 score.
         """
-        title = f"=    Testing model {self.classifier_name}   ="
-        title_length = len(title)
-        equal_signs = "=" * title_length
-        logger.info(f"\n{equal_signs}\n{title}\n{equal_signs}")
+        logger.info(f"{draw_title_box(f"Testing model {self.classifier_name}", 4)}")
         nb_test_ai_predictions = 0
         nb_test_human_predictions = 0
         nb_test_ai_texts = 0
@@ -787,8 +794,15 @@ def create_final_estimators(random_state=42):
             multi_class="auto",
             random_state=random_state,
         ),
-        "Multinomial Naive Bayes": MultinomialNB(),
-        "Support Vector Machine": SVM(probability=True, random_state=random_state),
+        "Multinomial Naive Bayes": MultinomialNB(alpha=1.0, fit_prior=True),
+        "Support Vector Machine": SVM(
+            C=10,
+            degree=2,
+            gamma=0.001,
+            probability=True,
+            kernel="linear",
+            random_state=random_state,
+        ),
     }
     return final_estimators
 
@@ -956,188 +970,18 @@ def create_pipeline(
             ),
         ),
         ("featureSelection", FeatureSelection(k=nb_features)),
+        ("scaling", StandardScaler(with_mean=False)),
     ]
     logger.info(f"Full pipeline config steps without classifier:\n{steps}\n")
     return Pipeline(steps)
 
 
-def create_all_hyperparam_grids(classifiers=False):
+def create_all_hyperparam_grids(classifiers=False, random_state=42):
     """
     Create hyperparameter grids for different classifiers.
 
     Returns:
         dict: A dictionary containing hyperparameter grids for different classifiers.
-    
-    Full example :\n
-    
-        {
-            "classification": [MultinomialNB()],
-            "classification__alpha": [0.1, 1, 10],
-            "classification__fit_prior": [True, False],
-        },
-        {
-            "classification": [SVM(probability=True)],
-            "classification__C": [0.1, 1, 10],
-            "classification__kernel": ["linear", "rbf"],
-            "classification__gamma": [0.001, 0.01, 0.1],
-            "classification__degree": [2, 3, 4],
-            "classification__probability": [True, False],
-        },	    
-        {
-            "classification": [LogisticRegression(penalty="l1")],
-            "classification__C": [0.1, 1, 10],
-            "classification__solver": ["liblinear"],
-            "classification__max_iter": [100, 200, 300],
-            "classification__multi_class": ["auto", "ovr"],
-        },
-        {
-            "classification": [LogisticRegression(penalty="l2")],
-            "classification__C": [0.1, 1, 10],
-            "classification__solver": ["liblinear", "lbfgs"],
-            "classification__max_iter": [100, 200, 300],
-            "classification__multi_class": ["auto", "ovr"],
-        },
-        {
-            "classification": [DecisionTreeClassifier()],
-            "classification__criterion": ["gini", "entropy"],
-            "classification__splitter": ["best", "random"],
-            "classification__max_depth": [None, 10, 20, 30],
-            "classification__min_samples_split": [2, 5, 10],
-            "classification__min_samples_leaf": [1, 2, 4],
-        },
-        {
-            "classification": [RandomForestClassifier()],
-            "classification__n_estimators": [10, 50, 100, 200],
-            "classification__criterion": ["gini", "entropy"],
-            "classification__max_depth": [None, 10, 20, 30],
-            "classification__min_samples_split": [2, 5, 10],
-            "classification__min_samples_leaf": [1, 2, 4],
-        },
-        {
-            "classification": [GradientBoostingClassifier()],
-            "classification__n_estimators": [100, 200, 300],
-            "classification__learning_rate": [0.1, 0.01, 0.001],
-            "classification__max_depth": [3, 4, 5],
-            "classification__subsample": [0.8, 0.9, 1.0],
-        },
-        {
-            "classification": [StackingClassifier(estimators=base_classifiers, final_estimator=MultinomialNB(), n_jobs=-1)],
-            "classification__final_estimator__alpha": [0.1, 1, 10],
-            "classification__final_estimator__fit_prior": [True, False],
-        },
-        {
-            "classification": [StackingClassifier(estimators=base_classifiers, final_estimator=SVM(probability=True), n_jobs=-1)],
-            "classification__final_estimator__C": [0.1, 1, 10],
-            "classification__final_estimator__kernel": ["linear", "rbf"],
-            "classification__final_estimator__gamma": [0.001, 0.01, 0.1],
-            "classification__final_estimator__degree": [2, 3, 4],
-            "classification__final_estimator__probability": [True],
-        },
-        {
-            "classification": [StackingClassifier(estimators=base_classifiers, final_estimator=LogisticRegression(penalty="l1"), n_jobs=-1)],
-            "classification__final_estimator__C": [0.1, 1, 10],
-            "classification__final_estimator__solver": ["liblinear"],
-            "classification__final_estimator__max_iter": [100, 200, 300],
-            "classification__final_estimator__multi_class": ["auto", "ovr"],
-        },
-        {
-            "classification": [StackingClassifier(estimators=base_classifiers, final_estimator=LogisticRegression(penalty="l2"), n_jobs=-1)],
-            "classification__final_estimator__C": [0.1, 1, 10],
-            "classification__final_estimator__solver": ["liblinear", "lbfgs"],
-            "classification__final_estimator__max_iter": [100, 200, 300],
-            "classification__final_estimator__multi_class": ["auto", "ovr"],
-        },
-        {
-            "classification": [StackingClassifier(estimators=base_classifiers, final_estimator=DecisionTreeClassifier())],
-            "classification__final_estimator__max_depth": [3, 4, 5],
-            "classification__final_estimator__min_samples_split": [2, 5, 10],
-            "classification__final_estimator__min_samples_leaf": [1, 2, 4],
-        },
-        {
-            "classification": [StackingClassifier(estimators=base_classifiers, final_estimator=RandomForestClassifier(), n_jobs=-1)],
-            "classification__final_estimator__n_estimators": [100, 200, 300],
-            "classification__final_estimator__criterion": ["gini", "entropy"],
-            "classification__final_estimator__max_depth": [3, 4, 5],
-            "classification__final_estimator__min_samples_split": [2, 5, 10],
-            "classification__final_estimator__min_samples_leaf": [1, 2, 4],
-        },
-        {
-            "classification": [StackingClassifier(estimators=base_classifiers, final_estimator=GradientBoostingClassifier(), n_jobs=-1)],
-            "classification__final_estimator__n_estimators": [100, 200, 300],
-            "classification__final_estimator__learning_rate": [0.1, 0.01, 0.001],
-            "classification__final_estimator__max_depth": [3, 4, 5],
-            "classification__final_estimator__subsample": [0.8, 0.9, 1.0],
-        },
-        {
-            "classification": [BaggingClassifier(estimator=MultinomialNB(), n_jobs=-1)],
-            "classification__n_estimators": [10, 50, 100],
-            "classification__max_samples": [0.5, 0.7, 1.0],
-            "classification__max_features": [0.5, 0.7, 1.0],
-            "classification__bootstrap": [True, False],
-            "classification__bootstrap_features": [True, False],
-            "classification__oob_score": [True, False],
-            "classification__warm_start": [True, False],
-        },
-        {
-            "classification": [BaggingClassifier(estimator=SVM(probability=True), n_jobs=-1)],
-            "classification__n_estimators": [10, 50, 100],
-            "classification__max_samples": [0.5, 0.7, 1.0],
-            "classification__max_features": [0.5, 0.7, 1.0],
-            "classification__bootstrap": [True, False],
-            "classification__bootstrap_features": [True, False],
-            "classification__oob_score": [True, False],
-            "classification__warm_start": [True, False],
-        },
-        {
-            "classification": [BaggingClassifier(estimator=LogisticRegression(penalty="l1"), n_jobs=-1)],
-            "classification__n_estimators": [10, 50, 100],
-            "classification__max_samples": [0.5, 0.7, 1.0],
-            "classification__max_features": [0.5, 0.7, 1.0],
-            "classification__bootstrap": [True, False],
-            "classification__bootstrap_features": [True, False],
-            "classification__oob_score": [True, False],
-            "classification__warm_start": [True, False],
-        },
-        {
-            "classification": [BaggingClassifier(estimator=LogisticRegression(penalty="l2"), n_jobs=-1)],
-            "classification__n_estimators": [10, 50, 100],
-            "classification__max_samples": [0.5, 0.7, 1.0],
-            "classification__max_features": [0.5, 0.7, 1.0],
-            "classification__bootstrap": [True, False],
-            "classification__bootstrap_features": [True, False],
-            "classification__oob_score": [True, False],
-            "classification__warm_start": [True, False],
-        },
-        {
-            "classification": [BaggingClassifier(estimator=DecisionTreeClassifier(), n_jobs=-1)],
-            "classification__n_estimators": [10, 50, 100],
-            "classification__max_samples": [0.5, 0.7, 1.0],
-            "classification__max_features": [0.5, 0.7, 1.0],
-            "classification__bootstrap": [True, False],
-            "classification__bootstrap_features": [True, False],
-            "classification__oob_score": [True, False],
-            "classification__warm_start": [True, False],
-        },
-        {
-            "classification": [BaggingClassifier(estimator=RandomForestClassifier(), n_jobs=-1)],
-            "classification__n_estimators": [10, 50, 100],
-            "classification__max_samples": [0.5, 0.7, 1.0],
-            "classification__max_features": [0.5, 0.7, 1.0],
-            "classification__bootstrap": [True, False],
-            "classification__bootstrap_features": [True, False],
-            "classification__oob_score": [True, False],
-            "classification__warm_start": [True, False],
-        },
-        {
-            "classification": [BaggingClassifier(estimator=GradientBoostingClassifier(), n_jobs=-1)],
-            "classification__n_estimators": [10, 50, 100],
-            "classification__max_samples": [0.5, 0.7, 1.0],
-            "classification__max_features": [0.5, 0.7, 1.0],
-            "classification__bootstrap": [True, False],
-            "classification__bootstrap_features": [True, False],
-            "classification__oob_score": [True, False],
-            "classification__warm_start": [True, False],
-        },
     """
     if not classifiers:
         hyperparam_grids = {
@@ -1298,75 +1142,55 @@ def create_all_hyperparam_grids(classifiers=False):
     else:
         base_classifiers = [(name, clf) for name, clf in create_base_classifiers().items()]
         hyperparam_grids = [
-            {
-                "classification": [BaggingClassifier(estimator=MultinomialNB(), n_jobs=-1)],
-                "classification__n_estimators": [10, 50, 100],
-                "classification__max_samples": [0.5, 0.7, 1.0],
-                "classification__max_features": [0.5, 0.7, 1.0],
-                "classification__bootstrap": [True, False],
-                "classification__bootstrap_features": [True, False],
-                "classification__oob_score": [True, False],
-                "classification__warm_start": [True, False],
+            {   
+                "classification": [MultinomialNB(alpha=1.0, fit_prior=True)],
+                "classification__alpha": [0.1, 1, 10],
+                "classification__fit_prior": [True, False],
+            },
+            {   
+                "classification": [SVM(C=10, degree=2, gamma=0.001, probability=True, kernel="linear", random_state=random_state)],
+                "classification__C": [0.1, 1, 10],
+                "classification__kernel": ["linear", "rbf"],
+                "classification__gamma": [0.001, 0.01, 0.1],
+                "classification__degree": [2, 3, 4],
+                "classification__probability": [True],
             },
             {
-                "classification": [BaggingClassifier(estimator=SVM(probability=True), n_jobs=-1)],
-                "classification__n_estimators": [10, 50, 100],
-                "classification__max_samples": [0.5, 0.7, 1.0],
-                "classification__max_features": [0.5, 0.7, 1.0],
-                "classification__bootstrap": [True, False],
-                "classification__bootstrap_features": [True, False],
-                "classification__oob_score": [True, False],
-                "classification__warm_start": [True, False],
+                "classification": [LogisticRegression(penalty="l1", C=10, solver="liblinear", multi_class="auto", random_state=random_state)],
+                "classification__C": [0.1, 1, 10],
+                "classification__solver": ["liblinear"],
+                "classification__max_iter": [100, 200, 300],
+                "classification__multi_class": ["auto", "ovr"],
+            },
+            {   
+                "classification": [LogisticRegression(penalty="l2", C=10, solver="lbfgs", multi_class="auto", random_state=random_state)],
+                "classification__C": [0.1, 1, 10],
+                "classification__solver": ["liblinear", "lbfgs"],
+                "classification__max_iter": [100, 200, 300],
+                "classification__multi_class": ["auto", "ovr"],
+            },
+            {   
+                "classificaiton": [DecisionTreeClassifier(criterion="entropy", max_depth=30, random_state=random_state, min_samples_leaf=4, min_samples_split=2)],
+                "classification__criterion": ["gini", "entropy"],
+                "classification__splitter": ["best", "random"],
+                "classification__max_depth": [None, 10, 20, 30],
+                "classification__min_samples_split": [2, 5, 10],
+                "classification__min_samples_leaf": [1, 2, 4],
+            },
+            {   
+                "classification": [RandomForestClassifier(max_depth=None, min_samples_leaf=1, min_samples_split=5, n_estimators=200, criterion="gini", random_state=random_state)],
+                "classification__n_estimators": [10, 50, 100, 200],
+                "classification__criterion": ["gini", "entropy"],
+                "classification__max_depth": [None, 10, 20, 30],
+                "classification__min_samples_split": [2, 5, 10],
+                "classification__min_samples_leaf": [1, 2, 4],
             },
             {
-                "classification": [BaggingClassifier(estimator=LogisticRegression(penalty="l1"), n_jobs=-1)],
-                "classification__n_estimators": [10, 50, 100],
-                "classification__max_samples": [0.5, 0.7, 1.0],
-                "classification__max_features": [0.5, 0.7, 1.0],
-                "classification__bootstrap": [True, False],
-                "classification__bootstrap_features": [True, False],
-                "classification__oob_score": [True, False],
-                "classification__warm_start": [True, False],
-            },
-            {
-                "classification": [BaggingClassifier(estimator=LogisticRegression(penalty="l2"), n_jobs=-1)],
-                "classification__n_estimators": [10, 50, 100],
-                "classification__max_samples": [0.5, 0.7, 1.0],
-                "classification__max_features": [0.5, 0.7, 1.0],
-                "classification__bootstrap": [True, False],
-                "classification__bootstrap_features": [True, False],
-                "classification__oob_score": [True, False],
-                "classification__warm_start": [True, False],
-            },
-            {
-                "classification": [BaggingClassifier(estimator=DecisionTreeClassifier(), n_jobs=-1)],
-                "classification__n_estimators": [10, 50, 100],
-                "classification__max_samples": [0.5, 0.7, 1.0],
-                "classification__max_features": [0.5, 0.7, 1.0],
-                "classification__bootstrap": [True, False],
-                "classification__bootstrap_features": [True, False],
-                "classification__oob_score": [True, False],
-                "classification__warm_start": [True, False],
-            },
-            {
-                "classification": [BaggingClassifier(estimator=RandomForestClassifier(), n_jobs=-1)],
-                "classification__n_estimators": [10, 50, 100],
-                "classification__max_samples": [0.5, 0.7, 1.0],
-                "classification__max_features": [0.5, 0.7, 1.0],
-                "classification__bootstrap": [True, False],
-                "classification__bootstrap_features": [True, False],
-                "classification__oob_score": [True, False],
-                "classification__warm_start": [True, False],
-            },
-            {
-                "classification": [BaggingClassifier(estimator=GradientBoostingClassifier(), n_jobs=-1)],
-                "classification__n_estimators": [10, 50, 100],
-                "classification__max_samples": [0.5, 0.7, 1.0],
-                "classification__max_features": [0.5, 0.7, 1.0],
-                "classification__bootstrap": [True, False],
-                "classification__bootstrap_features": [True, False],
-                "classification__oob_score": [True, False],
-                "classification__warm_start": [True, False],
+                "classification": [GradientBoostingClassifier(n_estimators=200, max_depth=5, learning_rate=0.1, subsample=0.9, random_state=random_state)],
+                "classification__n_estimators": [100, 200, 300],
+                "classification__learning_rate": [0.1, 0.01, 0.001],
+                "classification__max_depth": [3, 4, 5],
+                "classification__subsample": [0.8, 0.9, 1.0],
             },
         ]
     return hyperparam_grids
@@ -1421,7 +1245,6 @@ def perform_grid_search(
         verbose=1
     )
     grid_search.fit(X_train, y_train)
-    
     best_parameters = grid_search.best_params_
     best_score = grid_search.best_score_
     
@@ -1467,7 +1290,8 @@ def calculate_total_fits(param_grid, n_folds=10):
     :return: Total number of fits.
     """
     total_combinations = 0
-
+    if isinstance(param_grid, dict):
+        param_grid = [param_grid]
     for grid in param_grid:
         # Calculate the number of combinations for each model's parameter grid
         combinations = len(param_grid)  # Initial value should be the amount of entries (classifiers) in the grid

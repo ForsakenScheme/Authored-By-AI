@@ -77,32 +77,32 @@ class TestUserConfigPipeline(unittest.TestCase):
 
     def test_setClassifierName(self):
         for classifier in self.all_possible_classifiers:
-            self.pipeline.setClassifierName(classifier)
+            self.pipeline.set_classifier_name(classifier)
             self.assertEqual(self.pipeline.classifier_name, classifier)
 
     def test_setCustomPipeline(self):
         for classifier in self.all_possible_classifiers:
-            self.pipeline.setClassifierName(classifier)
-            self.pipeline.setCustomPipeline()
+            self.pipeline.set_classifier_name(classifier)
+            self.pipeline.set_custom_pipeline()
             self.assertIsNotNone(self.pipeline.custom_pipeline)
 
     def test_setParamGrid(self):
         for classifier in get_all_possible_classifiers():
-            self.pipeline.setClassifierName(classifier)
-            self.pipeline.setParamGrid(classifier)
+            self.pipeline.set_classifier_name(classifier)
+            self.pipeline.set_param_grid(classifier)
             self.assertIsNotNone(self.pipeline.param_grid)
 
     @patch("backend.scripts.pipelines.load")
     def test_loadCustomPipeline(self, mock_load):
         mock_load.return_value = "custom_pipeline"
-        self.pipeline.loadCustomPipeline("model.joblib")
+        self.pipeline.load_custom_pipeline("model.joblib")
         self.assertEqual(self.pipeline.custom_pipeline, "custom_pipeline")
 
     def test_create_custom_pipeline(self):
         for classifier in self.all_possible_classifiers:
-            self.pipeline.setClassifierName(classifier)
-            self.pipeline.setCustomPipeline()
-            self.pipeline.setParamGrid(classifier)
+            self.pipeline.set_classifier_name(classifier)
+            self.pipeline.set_custom_pipeline()
+            self.pipeline.set_param_grid(classifier)
             self.pipeline.create_custom_pipeline()
             self.assertIsNotNone(self.pipeline.custom_pipeline)
 

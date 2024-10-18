@@ -13,8 +13,6 @@ from joblib import dump, load
 
 from PyQt5.QtWidgets import (
     QMainWindow,
-    QWidget,
-    QVBoxLayout,
     QLabel,
     QComboBox,
     QCheckBox,
@@ -24,10 +22,10 @@ from PyQt5.QtWidgets import (
     QDialog,
     QMessageBox,
     QScrollArea,
-    QWidget,
     QSizePolicy,
     QApplication,
     QVBoxLayout,
+    QWidget,
 )
 from PyQt5.QtCore import Qt, pyqtSignal
 
@@ -118,8 +116,8 @@ def validate_single(model, pipeline: UserConfigPipeline, data_language: str) -> 
     validation_time = time() - start
     # Store validation metrics in a joblib file along the existing model files
     filtered_metrics = {k: v for k, v in validation_dict.items() if k != "cm"}
-    dump(filtered_metrics, os.path.join(os.getcwd(), f"code/backend/models/{data_language}", model + " Metrics" + ".joblib"))
-    logger.info(f"Validation metrics for model {model} saved in {os.path.join(os.getcwd(), f'code/backend/models/{data_language}', model + " Metrics" + '.joblib')}.")
+    dump(filtered_metrics, os.path.join(os.getcwd(), f"code/backend/models/{data_language}/trained_models", model + " Validation Metrics" + ".joblib"))
+    logger.info(f"Validation metrics for model {model} saved in {os.path.join(os.getcwd(), f'code/backend/models/{data_language}/trained_models', model + " Validation Metrics" + '.joblib')}.")
 
     return validation_time, validation_dict
 
@@ -214,7 +212,7 @@ def train_validate_test_single(model, pipeline: UserConfigPipeline, data_languag
 
     # Validate the model
     logger.info(f"Loading the just trained model {pipeline.classifier_name}.")
-    pipeline.loadCustomPipeline(model)
+    pipeline.load_custom_pipeline(model)
     logger.info(f"Successfully loaded model {pipeline.classifier_name}.")
     validation_time, validation_dict = validate_single(model, pipeline, data_language)
 
@@ -396,7 +394,6 @@ class MatplotlibWindow(QWidget):
             f"Finished plotting learning curve for model {pipeline.named_steps['classification']}."
         )
 
-
 class GridSearchWindow(QDialog):
     """
     A QDialog window to display the results of a grid search.
@@ -412,11 +409,15 @@ class GridSearchWindow(QDialog):
         selected_models,
         dict_grid_search_time,
         dict_grid_search_lists,
+        data_language,
     ):
         super().__init__()
         self.setWindowTitle("Validation results")
-        self.setWindowFlags(self.windowFlags() | Qt.WindowMinimizeButtonHint)
-        self.setWindowFlags(self.windowFlags() | Qt.WindowMaximizeButtonHint)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowMinimizeButtonHint | Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint)
+
+        self.selected_models = selected_models
+        self.dict_grid_search_lists = dict_grid_search_lists
+        self.data_language = data_language
 
         # Create scroll area
         scroll_area = QScrollArea()
@@ -433,17 +434,13 @@ class GridSearchWindow(QDialog):
         content_widget = QWidget()
         content_widget.setContentsMargins(10, 10, 10, 10)
         content_layout = QVBoxLayout(content_widget)
-
-        # Add content to content widget
-        # example [(("precision", 0.88)), {"classification__C": 1, "classification__kernel": "linear"}),]
+        
         content = ""
         for model in selected_models:
-            grid_search_time = dict_grid_search_time[model]
             content += f"<pre><b>Grid search results for {model}</b>\n\n"
-            content += (
-                f"\tGrid search  performed in {grid_search_time:.2f} seconds.\n\n"
-            )
-
+            if dict_grid_search_time is not None:
+                grid_search_time = dict_grid_search_time[model]
+                content += (f"\tGrid search  performed in {grid_search_time:.2f} seconds.\n\n")
             grid_search_list = dict_grid_search_lists[model]
             for metric in grid_search_list:
                 metric_name = metric[0][0]
@@ -853,6 +850,7 @@ class TrainValidateTestWindow(QMainWindow):
             "Train (using the configuration file)",
             "Learning curve (using the configuration file)",
             "Grid search (using the configuration file)",
+            "Get grid search results from saved results file",
             "Validate (loading existing model)",
             "Get validation metrics from saved metrics file",
             "Test (loading existing model)",
@@ -1018,8 +1016,8 @@ class TrainValidateTestWindow(QMainWindow):
         dict_train_time = {}
 
         for model in selected_models:
-            self.pipeline.setClassifierName(model)
-            self.pipeline.setCustomPipeline()
+            self.pipeline.set_classifier_name(model)
+            self.pipeline.set_custom_pipeline()
             train_time = train_single(model, self.pipeline)
 
             # Store results in dictionaries
@@ -1043,13 +1041,13 @@ class TrainValidateTestWindow(QMainWindow):
         dict_grid_search_lists = {}
         
         for model in selected_models:
-            self.pipeline.setClassifierName(model)
-            self.pipeline.setParamGrid(model)
-            self.pipeline.setCustomPipeline()
+            self.pipeline.set_classifier_name(model)
+            self.pipeline.set_param_grid(model)
+            self.pipeline.set_custom_pipeline()
             grid_search_time, grid_search_list = grid_search_single(
                 model, self.pipeline
             )
-
+            self.save_grid_search_results(grid_search_list, model)
             # Store results in dictionaries
             dict_grid_search_time[model] = grid_search_time
             dict_grid_search_lists[model] = grid_search_list
@@ -1059,6 +1057,41 @@ class TrainValidateTestWindow(QMainWindow):
             selected_models,
             dict_grid_search_time,
             dict_grid_search_lists,
+            self.data_language,
+        )
+        self.childWindows.append(grid_search_window)
+        grid_search_window.show()
+        
+    def save_grid_search_results(self, grid_search_list, model):
+        """
+        Save the grid search results to a file.
+
+        Parameters:
+            selected_models (List[str]): The selected models.
+            dict_grid_search_results (Dict[str, List[Tuple[Tuple[str, float], Dict[str, Any]]]): The grid search results for each model.
+        """
+        save_file_path = os.path.join(os.getcwd(), f"code/backend/models/{self.data_language}/trained_models", f"{model} GridSearch Results.joblib")
+        dump(grid_search_list, save_file_path)
+        logger.info(f"Grid search results for model {model} saved in {save_file_path}.")
+        
+    def extract_grid_search_results(self, selected_models):
+        """
+        Extract the grid search results from the saved files.
+
+        Parameters:
+            selected_models (List[str]): The selected models.
+        """
+        dict_grid_search_results = {}
+        for model in selected_models:
+            save_file_path = os.path.join(os.getcwd(), f"code/backend/models/{self.data_language}/trained_models", f"{model} GridSearch Results.joblib")
+            grid_search_list = load(save_file_path)
+            dict_grid_search_results[model] = grid_search_list
+        # Display results for each model in a new window
+        grid_search_window = GridSearchWindow(
+            selected_models,
+            None, # No grid search time
+            dict_grid_search_results,
+            self.data_language,
         )
         self.childWindows.append(grid_search_window)
         grid_search_window.show()
@@ -1075,8 +1108,8 @@ class TrainValidateTestWindow(QMainWindow):
             QMessageBox.critical(self, "Error", "No model selected.")
             return
         for model in selected_models:
-            self.pipeline.setClassifierName(model)
-            self.pipeline.setCustomPipeline()
+            self.pipeline.set_classifier_name(model)
+            self.pipeline.set_custom_pipeline()
             learning_curve_widget = MatplotlibWindow()
             learning_curve_widget.plot_learning_curve(
                 self.pipeline.custom_pipeline,
@@ -1101,8 +1134,8 @@ class TrainValidateTestWindow(QMainWindow):
         dict_validation_dicts = {}
 
         for model in selected_models:
-            self.pipeline.setClassifierName(model)
-            self.pipeline.loadCustomPipeline(model)
+            self.pipeline.set_classifier_name(model)
+            self.pipeline.load_custom_pipeline(model)
             validation_time, validation_dict = validate_single(model, self.pipeline, self.data_language)
             # Display results for each models in a new window
             # Store results in dictionaries
@@ -1142,8 +1175,8 @@ class TrainValidateTestWindow(QMainWindow):
         dict_predictions = {}
         dict_predict_probas = {}
         for model in selected_models:
-            self.pipeline.setClassifierName(model)
-            self.pipeline.loadCustomPipeline(model)
+            self.pipeline.set_classifier_name(model)
+            self.pipeline.load_custom_pipeline(model)
             (
                 test_time,
                 nb_test_texts,
@@ -1218,8 +1251,8 @@ class TrainValidateTestWindow(QMainWindow):
         dict_predict_probas = {}
 
         for model in selected_models:
-            self.pipeline.setClassifierName(model)
-            self.pipeline.setCustomPipeline()
+            self.pipeline.set_classifier_name(model)
+            self.pipeline.set_custom_pipeline()
             (
                 train_time,
                 validation_time,
@@ -1290,7 +1323,7 @@ class TrainValidateTestWindow(QMainWindow):
             return
         dict_validation_dicts = {}
         for model in selected_models:
-            path_to_metrics_file = os.path.join(os.getcwd(), f"code/backend/models/{self.data_language}", model + " Metrics.joblib")
+            path_to_metrics_file = os.path.join(os.getcwd(), f"code/backend/models/{self.data_language}/trained_models", model + " Validation Metrics.joblib")
             try:
                 metrics_dict = load(path_to_metrics_file)
             except Exception as e:
@@ -1348,6 +1381,8 @@ class TrainValidateTestWindow(QMainWindow):
                 self.plot_learning_curve_models(selected_models)
             elif selected_action == "Grid search (using the configuration file)":
                 self.grid_search_models(selected_models)
+            elif selected_action ==  "Get grid search results from saved results file":
+                self.extract_grid_search_results(selected_models)
             elif selected_action == "Validate (loading existing model)":
                 self.validate_models(selected_models)
             elif selected_action == "Test (loading existing model)":

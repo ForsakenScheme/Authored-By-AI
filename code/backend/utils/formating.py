@@ -16,6 +16,6 @@ def draw_title_box(title: str, space: int):
     title_line = "=" + space * " " + title + space * " " + "="
     
     # Combine everything into a single string with newlines
-    box = f"{border}\n{title_line}\n{border}"
+    box = f"\n{border}\n{title_line}\n{border}"
     
     return box
