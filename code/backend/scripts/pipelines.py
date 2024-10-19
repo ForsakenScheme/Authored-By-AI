@@ -1031,7 +1031,6 @@ def create_all_hyperparam_grids(classifiers=False, random_state=42):
             "Stacking Multinomial Naive Bayes": {
                 "classification__final_estimator__alpha": [0.1, 1, 10],
                 "classification__final_estimator__fit_prior": [True, False],
-                "classification__cv": [StratifiedKFold(n_splits=10, shuffle=True, random_state=42)],
             },
             "Stacking Support Vector Machine": {
                 "classification__final_estimator__C": [0.1, 1, 10],
@@ -1039,27 +1038,23 @@ def create_all_hyperparam_grids(classifiers=False, random_state=42):
                 "classification__final_estimator__gamma": [0.001, 0.01, 0.1],
                 "classification__final_estimator__degree": [2, 3, 4],
                 "classification__final_estimator__probability": [True],
-                "classification__cv": [StratifiedKFold(n_splits=10, shuffle=True, random_state=42)],
             },
             "Stacking Logistic Regression (L1)": {
                 "classification__final_estimator__C": [0.1, 1, 10],
                 "classification__final_estimator__solver": ["liblinear"],
                 "classification__final_estimator__max_iter": [100, 200, 300],
                 "classification__final_estimator__multi_class": ["auto", "ovr"],
-                "classification__cv": [StratifiedKFold(n_splits=10, shuffle=True, random_state=42)],
             },
             "Stacking Logistic Regression (L2)": {
                 "classification__final_estimator__C": [0.1, 1, 10],
                 "classification__final_estimator__solver": ["liblinear"],
                 "classification__final_estimator__max_iter": [100, 200, 300],
                 "classification__final_estimator__multi_class": ["auto", "ovr"],
-                "classification__cv": [StratifiedKFold(n_splits=10, shuffle=True, random_state=42)],
             },
             "Stacking Decision Tree": {
                 "classification__final_estimator__max_depth": [3, 4, 5],
                 "classification__final_estimator__min_samples_split": [2, 5, 10],
                 "classification__final_estimator__min_samples_leaf": [1, 2, 4],
-                "classification__cv": [StratifiedKFold(n_splits=10, shuffle=True, random_state=42)],
             },
             "Stacking Random Forest": {
                 "classification__final_estimator__n_estimators": [100, 200, 300],
@@ -1067,7 +1062,6 @@ def create_all_hyperparam_grids(classifiers=False, random_state=42):
                 "classification__final_estimator__max_depth": [3, 4, 5],
                 "classification__final_estimator__min_samples_split": [2, 5, 10],
                 "classification__final_estimator__min_samples_leaf": [1, 2, 4],
-                "classification__cv": [StratifiedKFold(n_splits=10, shuffle=True, random_state=42)],
             },
             "Stacking Gradient Boosting": {
                 "classification__final_estimator__n_estimators": [100, 200, 300],
