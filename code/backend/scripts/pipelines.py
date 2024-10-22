@@ -234,7 +234,7 @@ class UserConfigPipeline:
         # determine the classifier based on the user's selection in the ini file
         if self.classifier_name == "Support Vector Machine":
             classifier = SVM(
-                C=10,
+                C=0.1,
                 degree=2,
                 gamma=0.001,
                 probability=True,
@@ -243,7 +243,7 @@ class UserConfigPipeline:
             )
         elif self.classifier_name == "Logistic Regression (L1)":
             classifier = LogisticRegression(
-                C=10,
+                C=1,
                 max_iter=100,
                 solver="liblinear",
                 penalty="l1",
@@ -263,10 +263,10 @@ class UserConfigPipeline:
             )
         elif self.classifier_name == "Decision Tree":
             classifier = DecisionTreeClassifier(
-                criterion="entropy",
-                max_depth=30,
+                criterion="gini",
+                max_depth=10,
                 random_state=self.random_state,
-                min_samples_leaf=4,
+                min_samples_leaf=1,
                 min_samples_split=2,
             )
         elif self.classifier_name == "Random Forest":
@@ -274,21 +274,21 @@ class UserConfigPipeline:
                 max_depth=None,
                 min_samples_leaf=1,
                 min_samples_split=5,
-                n_estimators=200,
-                criterion="gini",
+                n_estimators=50,
+                criterion="entropy",
                 random_state=self.random_state,
                 n_jobs=-1,
             )
         elif self.classifier_name == "Gradient Boosting":
             classifier = GradientBoostingClassifier(
                 n_estimators=200,
-                max_depth=5,
+                max_depth=4,
                 learning_rate=0.1,
-                subsample=0.9,
+                subsample=0.8,
                 random_state=self.random_state,
             )
         elif self.classifier_name == "Multinomial Naive Bayes":
-            classifier = MultinomialNB(alpha=1.0, fit_prior=True)
+            classifier = MultinomialNB(alpha=10, fit_prior=True)
         elif self.classifier_name == "Stacking Decision Tree":
             classifier = StackingClassifier(
                 estimators=list(create_base_classifiers().items()),
@@ -1137,12 +1137,12 @@ def create_all_hyperparam_grids(classifiers=False, random_state=42):
         base_classifiers = [(name, clf) for name, clf in create_base_classifiers().items()]
         hyperparam_grids = [
             {   
-                "classification": [MultinomialNB(alpha=1.0, fit_prior=True)],
+                "classification": [MultinomialNB(alpha=10, fit_prior=True)],
                 "classification__alpha": [0.1, 1, 10],
                 "classification__fit_prior": [True, False],
             },
             {   
-                "classification": [SVM(C=10, degree=2, gamma=0.001, probability=True, kernel="linear", random_state=random_state)],
+                "classification": [SVM(C=0.1, degree=2, gamma=0.001, probability=True, kernel="linear", random_state=random_state)],
                 "classification__C": [0.1, 1, 10],
                 "classification__kernel": ["linear", "rbf"],
                 "classification__gamma": [0.001, 0.01, 0.1],
@@ -1150,21 +1150,21 @@ def create_all_hyperparam_grids(classifiers=False, random_state=42):
                 "classification__probability": [True],
             },
             {
-                "classification": [LogisticRegression(penalty="l1", C=10, solver="liblinear", multi_class="auto", random_state=random_state)],
+                "classification": [LogisticRegression(penalty="l1", C=1, solver="liblinear", multi_class="auto", random_state=random_state, max_iter=100)],
                 "classification__C": [0.1, 1, 10],
                 "classification__solver": ["liblinear"],
                 "classification__max_iter": [100, 200, 300],
                 "classification__multi_class": ["auto", "ovr"],
             },
             {   
-                "classification": [LogisticRegression(penalty="l2", C=10, solver="lbfgs", multi_class="auto", random_state=random_state)],
+                "classification": [LogisticRegression(penalty="l2", C=10, solver="liblinear", multi_class="auto", random_state=random_state, max_iter=100)],
                 "classification__C": [0.1, 1, 10],
                 "classification__solver": ["liblinear", "lbfgs"],
                 "classification__max_iter": [100, 200, 300],
                 "classification__multi_class": ["auto", "ovr"],
             },
             {   
-                "classificaiton": [DecisionTreeClassifier(criterion="entropy", max_depth=30, random_state=random_state, min_samples_leaf=4, min_samples_split=2)],
+                "classification": [DecisionTreeClassifier(criterion="gini", max_depth=10, random_state=random_state, min_samples_leaf=1, min_samples_split=2)],
                 "classification__criterion": ["gini", "entropy"],
                 "classification__splitter": ["best", "random"],
                 "classification__max_depth": [None, 10, 20, 30],
@@ -1172,7 +1172,7 @@ def create_all_hyperparam_grids(classifiers=False, random_state=42):
                 "classification__min_samples_leaf": [1, 2, 4],
             },
             {   
-                "classification": [RandomForestClassifier(max_depth=None, min_samples_leaf=1, min_samples_split=5, n_estimators=200, criterion="gini", random_state=random_state)],
+                "classification": [RandomForestClassifier(max_depth=None, min_samples_leaf=1, min_samples_split=5, n_estimators=50, criterion="entropy", random_state=random_state)],
                 "classification__n_estimators": [10, 50, 100, 200],
                 "classification__criterion": ["gini", "entropy"],
                 "classification__max_depth": [None, 10, 20, 30],
@@ -1180,7 +1180,7 @@ def create_all_hyperparam_grids(classifiers=False, random_state=42):
                 "classification__min_samples_leaf": [1, 2, 4],
             },
             {
-                "classification": [GradientBoostingClassifier(n_estimators=200, max_depth=5, learning_rate=0.1, subsample=0.9, random_state=random_state)],
+                "classification": [GradientBoostingClassifier(n_estimators=200, max_depth=4, learning_rate=0.1, subsample=0.8, random_state=random_state)],
                 "classification__n_estimators": [100, 200, 300],
                 "classification__learning_rate": [0.1, 0.01, 0.001],
                 "classification__max_depth": [3, 4, 5],
